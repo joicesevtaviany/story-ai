@@ -16,7 +16,8 @@ const PORT = 3000;
 app.use(express.json({ limit: '50mb' }));
 
 // Database Setup
-const db = new Database("storybook.db");
+const dbPath = process.env.DB_PATH || "storybook.db";
+const db = new Database(dbPath);
 db.exec(`
   CREATE TABLE IF NOT EXISTS books (
     id TEXT PRIMARY KEY,
