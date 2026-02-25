@@ -138,16 +138,34 @@ export const generateStory = async (formData: {
 };
 
 export const testConnection = async () => {
+  const { geminiApiKey } = useBookStore.getState();
+  let apiKey = geminiApiKey || 
+               import.meta.env.VITE_GEMINI_API_KEY || 
+               (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
+  
+  apiKey = apiKey?.trim();
+  if (!apiKey) throw new Error("API Key tidak ditemukan di Settings maupun Environment Variables.");
+
   try {
-    const genAI = getGenAI();
-    // Use a lightweight text model to test general connectivity
-    const response = await genAI.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [{ parts: [{ text: "Hi" }] }]
+    // Direct fetch test to bypass SDK and get real error codes
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }] })
     });
-    return !!response.text;
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const msg = errorData.error?.message || response.statusText;
+      throw new Error(`Google API Error (${response.status}): ${msg}`);
+    }
+    
+    return true;
   } catch (error: any) {
-    console.error("Connection Test Error:", error);
+    if (error.message === 'Failed to fetch') {
+      throw new Error("Jaringan/Browser memblokir koneksi ke Google API. Coba matikan Ad-Blocker atau gunakan koneksi internet lain.");
+    }
     throw error;
   }
 };

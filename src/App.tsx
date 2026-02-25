@@ -460,13 +460,13 @@ function SettingsView() {
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2 text-xs">
               <span className="text-slate-500">Status Sistem:</span>
-              {import.meta.env.VITE_GEMINI_API_KEY ? (
+              {import.meta.env.VITE_GEMINI_API_KEY || geminiApiKey ? (
                 <span className="text-green-600 font-bold flex items-center gap-1">
-                  <Check size={12} /> VITE_GEMINI_API_KEY Terdeteksi
+                  <Check size={12} /> API Key Terdeteksi ({geminiApiKey ? "Settings" : "Environment"})
                 </span>
               ) : (
                 <span className="text-amber-600 font-bold flex items-center gap-1">
-                  ⚠️ VITE_GEMINI_API_KEY Tidak Ditemukan
+                  ⚠️ API Key Tidak Ditemukan
                 </span>
               )}
             </div>
