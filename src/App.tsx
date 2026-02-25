@@ -21,7 +21,7 @@ import {
   Check
 } from 'lucide-react';
 import { useBookStore, Book, Page } from './store/useBookStore';
-import { validateGeminiKey, generateImage } from './services/geminiService';
+import { validateGeminiKey, generateImage, testConnection } from './services/geminiService';
 import { isSupabaseConfigured } from './services/supabase';
 import { Wizard } from './components/Wizard';
 import { Dashboard } from './components/Dashboard';
@@ -205,6 +205,21 @@ function SettingsView() {
   const [validationResult, setValidationResult] = useState<{ valid: boolean; message: string } | null>(null);
   const [saveStatus, setSaveStatus] = useState<{ [key: string]: boolean }>({});
   const [isTestingImage, setIsTestingImage] = useState(false);
+  const [isTestingConn, setIsTestingConn] = useState(false);
+
+  const handleTestConnection = async () => {
+    setIsTestingConn(true);
+    try {
+      const success = await testConnection();
+      if (success) {
+        alert("Koneksi Berhasil! API Key Anda aktif dan bisa terhubung ke Google AI.");
+      }
+    } catch (error: any) {
+      alert("Koneksi Gagal: " + error.message);
+    } finally {
+      setIsTestingConn(false);
+    }
+  };
 
   const handleTestImage = async () => {
     setIsTestingImage(true);
@@ -447,6 +462,15 @@ function SettingsView() {
                 </span>
               )}
             </div>
+
+            <button
+              onClick={handleTestConnection}
+              disabled={isTestingConn}
+              className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm font-bold text-slate-500 hover:border-green-400 hover:text-green-600 transition-all flex items-center justify-center gap-2"
+            >
+              {isTestingConn ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+              Tes Koneksi API (Cek Jaringan)
+            </button>
 
             <button
               onClick={handleTestImage}

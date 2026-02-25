@@ -138,6 +138,21 @@ export const generateStory = async (formData: {
   return JSON.parse(response.text || "{}");
 };
 
+export const testConnection = async () => {
+  try {
+    const genAI = getGenAI();
+    // Use a lightweight text model to test general connectivity
+    const response = await genAI.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ parts: [{ text: "Hi" }] }]
+    });
+    return !!response.text;
+  } catch (error: any) {
+    console.error("Connection Test Error:", error);
+    throw error;
+  }
+};
+
 export const generateImage = async (prompt: string) => {
   const { imageEngine, freepikApiKey, geminiApiKey } = useBookStore.getState();
 
