@@ -5,9 +5,12 @@ const getGenAI = () => {
   const { geminiApiKey } = useBookStore.getState();
   
   // Priority: 1. User's custom key in Settings, 2. VITE_ env var (Netlify), 3. process.env (AI Studio)
-  const apiKey = geminiApiKey || 
-                 import.meta.env.VITE_GEMINI_API_KEY || 
-                 (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
+  let apiKey = geminiApiKey || 
+               import.meta.env.VITE_GEMINI_API_KEY || 
+               (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
+
+  // Trim whitespace to prevent network errors
+  apiKey = apiKey?.trim();
 
   if (!apiKey) {
     throw new Error("Gemini API Key tidak ditemukan. Silakan masukkan di menu Pengaturan atau atur VITE_GEMINI_API_KEY di environment variables.");
@@ -188,6 +191,9 @@ export const generateImage = async (prompt: string) => {
     return imageUrl;
   } catch (error: any) {
     console.error("generateImage Error:", error);
+    if (error.message === 'Failed to fetch') {
+      throw new Error("Gagal terhubung ke server Google AI. Pastikan internet Anda stabil dan tidak ada Ad-Blocker/VPN yang memblokir request.");
+    }
     throw error;
   }
 };
