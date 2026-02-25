@@ -1,39 +1,33 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { useBookStore } from "../store/useBookStore";
 
-const getGenAI = () => {
-  const { geminiApiKey } = useBookStore.getState();
-  
-  // Priority: 1. User's custom key in Settings, 2. VITE_ env var (Vercel/Netlify), 3. process.env (AI Studio)
-  let apiKey = geminiApiKey || 
-               import.meta.env.VITE_GEMINI_API_KEY || 
-               (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
+const callGeminiProxy = async (payload: any) => {
+  const response = await fetch('/api/proxy/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
 
-  apiKey = apiKey?.trim();
-
-  if (!apiKey || apiKey.length < 10) {
-    throw new Error("Gemini API Key tidak valid atau belum diatur. Silakan masukkan API Key di menu Pengaturan.");
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Server Error (${response.status})`);
   }
-  
-  return new GoogleGenAI({ apiKey });
+
+  return response.json();
 };
 
 export const validateGeminiKey = async (key: string) => {
+  // We still test locally for validation if the user just typed it
   try {
     const ai = new GoogleGenAI({ apiKey: key });
-    // Try a very simple request to validate the key
     await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: "Hi",
+      model: "gemini-2.0-flash",
+      contents: [{ parts: [{ text: "Hi" }] }],
       config: { maxOutputTokens: 1 }
     });
     return { valid: true, message: "API Key valid!" };
   } catch (error: any) {
-    console.error("Gemini Validation Error:", error);
-    return { 
-      valid: false, 
-      message: error.message || "API Key tidak valid atau sudah habis kuotanya." 
-    };
+    return { valid: false, message: error.message };
   }
 };
 
@@ -87,7 +81,6 @@ export const generateStory = async (formData: {
   characterType: string;
   language?: string;
 }) => {
-  const model = "gemini-3-flash-preview";
   const prompt = `Create a children's storybook outline with 8 pages.
   Genre: ${formData.genre}
   Theme: ${formData.theme}
@@ -106,10 +99,9 @@ export const generateStory = async (formData: {
   Return the response in JSON format.
   IMPORTANT: The story text MUST be in ${formData.language || "Indonesian"}.`;
 
-  const genAI = getGenAI();
-  const response = await genAI.models.generateContent({
-    model,
-    contents: prompt,
+  const response = await callGeminiProxy({
+    model: "gemini-2.0-flash",
+    contents: [{ parts: [{ text: prompt }] }],
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -134,38 +126,19 @@ export const generateStory = async (formData: {
     }
   });
 
-  return JSON.parse(response.text || "{}");
+  // Extract text from response
+  const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  return JSON.parse(text);
 };
 
 export const testConnection = async () => {
-  const { geminiApiKey } = useBookStore.getState();
-  let apiKey = geminiApiKey || 
-               import.meta.env.VITE_GEMINI_API_KEY || 
-               (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
-  
-  apiKey = apiKey?.trim();
-  if (!apiKey) throw new Error("API Key tidak ditemukan di Settings maupun Environment Variables.");
-
   try {
-    // Direct fetch test to bypass SDK and get real error codes
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }] })
+    await callGeminiProxy({
+      model: "gemini-2.0-flash",
+      contents: [{ parts: [{ text: "Hi" }] }]
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const msg = errorData.error?.message || response.statusText;
-      throw new Error(`Google API Error (${response.status}): ${msg}`);
-    }
-    
     return true;
   } catch (error: any) {
-    if (error.message === 'Failed to fetch') {
-      throw new Error("Jaringan/Browser memblokir koneksi ke Google API. Coba matikan Ad-Blocker atau gunakan koneksi internet lain.");
-    }
     throw error;
   }
 };
@@ -179,64 +152,45 @@ export const generateImage = async (prompt: string) => {
     return generateImageFreepik(prompt, effectiveFreepikKey);
   }
 
-  let retries = 2;
-  let lastError: any = null;
-
-  while (retries > 0) {
-    try {
-      const genAI = getGenAI();
-      const response = await genAI.models.generateContent({
-        model: "gemini-2.5-flash-image",
-        contents: {
-          parts: [{ text: prompt }]
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: "1:1"
-          }
-        }
-      });
-
-      if (!response.candidates || response.candidates.length === 0) {
-        throw new Error("Google AI tidak memberikan respon (Empty Candidates).");
-      }
-
-      let imageUrl = "";
-      let refusalReason = "";
-      const parts = response.candidates[0].content?.parts || [];
-      
-      for (const part of parts) {
-        if (part.inlineData) {
-          const mimeType = part.inlineData.mimeType || 'image/png';
-          imageUrl = `data:${mimeType};base64,${part.inlineData.data}`;
-          break;
-        } else if (part.text) {
-          refusalReason += part.text + " ";
+  try {
+    const response = await callGeminiProxy({
+      type: 'image',
+      model: "gemini-2.5-flash-image",
+      contents: {
+        parts: [{ text: prompt }]
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "1:1"
         }
       }
+    });
 
-      if (!imageUrl) {
-        throw new Error(refusalReason || "Model tidak mengembalikan data gambar. Cek apakah akun Anda diizinkan membuat gambar.");
-      }
-      
-      return imageUrl;
-    } catch (error: any) {
-      lastError = error;
-      console.error(`Attempt ${3 - retries} failed:`, error);
-      
-      // If it's a network error, retry
-      if (error.message?.includes('fetch') || error.name === 'TypeError') {
-        retries--;
-        if (retries > 0) {
-          await new Promise(r => setTimeout(r, 1500));
-          continue;
-        }
-        throw new Error("Gagal terhubung ke Google AI (Network Error). Coba matikan Ad-Blocker/VPN atau gunakan koneksi internet lain.");
-      }
-      
-      // If it's a safety error or other API error, don't retry
-      throw error;
+    if (!response.candidates || response.candidates.length === 0) {
+      throw new Error("Google AI tidak memberikan respon (Empty Candidates).");
     }
+
+    let imageUrl = "";
+    let refusalReason = "";
+    const parts = response.candidates[0].content?.parts || [];
+    
+    for (const part of parts) {
+      if (part.inlineData) {
+        const mimeType = part.inlineData.mimeType || 'image/png';
+        imageUrl = `data:${mimeType};base64,${part.inlineData.data}`;
+        break;
+      } else if (part.text) {
+        refusalReason += part.text + " ";
+      }
+    }
+
+    if (!imageUrl) {
+      throw new Error(refusalReason || "Model tidak mengembalikan data gambar.");
+    }
+    
+    return imageUrl;
+  } catch (error: any) {
+    console.error("generateImage Error:", error);
+    throw error;
   }
-  throw lastError;
 };

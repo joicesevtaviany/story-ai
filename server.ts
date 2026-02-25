@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
@@ -41,6 +42,43 @@ db.exec(`
 `);
 
 // API Routes
+app.post("/api/proxy/gemini", async (req, res) => {
+  const { model, contents, config, type } = req.body;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return res.status(500).json({ error: "Gemini API Key not configured on server" });
+  }
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    
+    if (type === 'image') {
+      const response = await ai.models.generateContent({
+        model: model,
+        contents: contents,
+        config: config
+      });
+      
+      const candidates = response.candidates || [];
+      res.json({ candidates });
+    } else {
+      const response = await ai.models.generateContent({
+        model: model,
+        contents: contents,
+        config: config
+      });
+      res.json(response);
+    }
+  } catch (error: any) {
+    console.error("Gemini Proxy Error:", error);
+    res.status(500).json({ 
+      error: error.message || "Failed to communicate with Gemini API",
+      details: error.stack
+    });
+  }
+});
+
 app.post("/api/books", (req, res) => {
   const { id, title, theme, targetAge, moralValue, coverImageUrl, pages } = req.body;
 
