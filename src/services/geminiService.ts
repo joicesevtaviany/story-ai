@@ -158,9 +158,7 @@ export const generateImage = async (prompt: string) => {
     const genAI = getGenAI();
     const response = await genAI.models.generateContent({
       model: "gemini-2.5-flash-image",
-      contents: {
-        parts: [{ text: prompt }]
-      },
+      contents: [{ parts: [{ text: prompt }] }], // Use standard array format
       config: {
         imageConfig: {
           aspectRatio: "1:1"
@@ -171,7 +169,11 @@ export const generateImage = async (prompt: string) => {
     let imageUrl = "";
     let refusalReason = "";
 
-    const parts = response.candidates?.[0]?.content?.parts || [];
+    if (!response.candidates || response.candidates.length === 0) {
+      throw new Error("Google AI tidak memberikan respon. Cek kuota API Anda.");
+    }
+
+    const parts = response.candidates[0].content?.parts || [];
     
     for (const part of parts) {
       if (part.inlineData) {
@@ -184,16 +186,17 @@ export const generateImage = async (prompt: string) => {
     }
 
     if (!imageUrl) {
-      console.error("Gemini Image Generation Failed. Reason:", refusalReason || "No image part returned");
-      throw new Error(refusalReason || "Model tidak mengembalikan gambar. Mungkin karena filter keamanan atau kuota habis.");
+      throw new Error(refusalReason || "Gagal mendapatkan gambar. Cek apakah akun Anda diizinkan membuat gambar di wilayah ini.");
     }
     
     return imageUrl;
   } catch (error: any) {
-    console.error("generateImage Error:", error);
-    if (error.message === 'Failed to fetch') {
-      throw new Error("Gagal terhubung ke server Google AI. Pastikan internet Anda stabil dan tidak ada Ad-Blocker/VPN yang memblokir request.");
+    console.error("generateImage Error Details:", error);
+    
+    if (error.message.includes('fetch') || error.name === 'TypeError') {
+      throw new Error("Koneksi diblokir oleh Browser/Jaringan. Coba matikan Ad-Blocker, VPN, atau gunakan Jendela Penyamaran (Incognito).");
     }
+    
     throw error;
   }
 };
