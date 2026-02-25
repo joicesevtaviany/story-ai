@@ -52,14 +52,7 @@ export function Wizard({ onComplete }: WizardProps) {
       const finalBook = { ...book, pages: pagesWithImages, coverImageUrl: pagesWithImages[0].imageUrl };
       setCurrentBook(finalBook);
       
-      // Save to DB
-      await fetch('/api/books', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(finalBook)
-      });
-
-      addBook(finalBook);
+      await addBook(finalBook);
       onComplete();
     } catch (error) {
       console.error(error);

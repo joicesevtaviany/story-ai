@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useBookStore, Book, Page } from './store/useBookStore';
 import { validateGeminiKey } from './services/geminiService';
+import { isSupabaseConfigured } from './services/supabase';
 import { Wizard } from './components/Wizard';
 import { Dashboard } from './components/Dashboard';
 import { BookPreview } from './components/BookPreview';
@@ -38,13 +39,12 @@ export default function App() {
   const { 
     currentBook, setCurrentBook, setBooks, 
     brandName, brandLogo, brandLogoUrl, setBrandSettings,
-    imageEngine, freepikApiKey, setImageSettings
+    imageEngine, freepikApiKey, setImageSettings,
+    fetchBooks, fetchBookById
   } = useBookStore();
 
   useEffect(() => {
-    fetch('/api/books')
-      .then(res => res.json())
-      .then(data => setBooks(data));
+    fetchBooks();
   }, []);
 
   const handleCreateNew = () => {
@@ -52,13 +52,12 @@ export default function App() {
     setView('wizard');
   };
 
-  const handleOpenBook = (book: Book) => {
-    fetch(`/api/books/${book.id}`)
-      .then(res => res.json())
-      .then(data => {
-        setCurrentBook(data);
-        setView('preview');
-      });
+  const handleOpenBook = async (book: Book) => {
+    const fullBook = await fetchBookById(book.id);
+    if (fullBook) {
+      setCurrentBook(fullBook);
+      setView('preview');
+    }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,6 +74,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#FDFCF0] text-slate-900 font-sans selection:bg-yellow-200">
       {/* Sidebar */}
+      {!isSupabaseConfigured && (
+        <div className="fixed top-0 left-0 right-0 bg-red-600 text-white text-center py-2 z-[100] text-xs font-bold shadow-lg">
+          ⚠️ Supabase belum dikonfigurasi. Data tidak akan tersimpan secara permanen. Atur VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY.
+        </div>
+      )}
       <aside className="fixed left-0 top-0 h-full w-64 bg-white border-r border-slate-200 p-6 z-50 hidden md:block">
         <div className="flex items-center gap-2 mb-10">
           <div className="w-10 h-10 bg-yellow-400 rounded-xl flex items-center justify-center shadow-sm overflow-hidden">

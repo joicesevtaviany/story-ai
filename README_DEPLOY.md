@@ -1,49 +1,63 @@
-# Panduan Deployment: Remix Kids Storybook Creator AI
+# Panduan Deployment: Remix Kids Storybook Creator AI (Supabase + Netlify)
 
-Aplikasi ini adalah aplikasi Full-Stack (Express + Vite) yang menggunakan **SQLite** sebagai database.
+Aplikasi ini telah dimigrasikan untuk menggunakan **Supabase** sebagai database, sehingga Anda dapat mendeploynya ke **Netlify** atau platform statis lainnya tanpa kehilangan data.
 
-## Penting: Batasan Netlify
-Netlify adalah platform untuk situs statis dan fungsi serverless. Aplikasi ini menggunakan **SQLite (`better-sqlite3`)** yang menyimpan data dalam file lokal (`storybook.db`).
-- **Masalah:** Di Netlify, file sistem bersifat *read-only* dan *ephemeral* (sementara). Data yang Anda simpan akan hilang setiap kali fungsi dijalankan ulang atau dideploy.
-- **Rekomendasi:** Untuk aplikasi Full-Stack dengan SQLite, sangat disarankan menggunakan platform seperti **Render.com**, **Railway.app**, atau **Fly.io** yang mendukung *Persistent Disk*.
+## 1. Persiapan Supabase
+1. Buat proyek baru di [Supabase](https://supabase.com/).
+2. Buka **SQL Editor** di dashboard Supabase.
+3. Jalankan perintah SQL berikut untuk membuat tabel yang diperlukan:
+
+```sql
+-- Tabel Books
+CREATE TABLE books (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  theme TEXT,
+  target_age TEXT,
+  moral_value TEXT,
+  cover_image_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Tabel Pages
+CREATE TABLE pages (
+  id TEXT PRIMARY KEY,
+  book_id TEXT REFERENCES books(id) ON DELETE CASCADE,
+  page_number INTEGER NOT NULL,
+  content TEXT,
+  image_url TEXT,
+  image_prompt TEXT
+);
+
+-- Aktifkan RLS (Row Level Security) jika diperlukan, 
+-- atau buat kebijakan akses publik untuk demo:
+ALTER TABLE books ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read" ON books FOR SELECT USING (true);
+CREATE POLICY "Allow public insert" ON books FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public read" ON pages FOR SELECT USING (true);
+CREATE POLICY "Allow public insert" ON pages FOR INSERT WITH CHECK (true);
+```
+
+4. Dapatkan **Project URL** dan **Anon Key** dari menu **Project Settings > API**.
 
 ---
 
-## Opsi 1: Deploy ke Netlify (Hanya Frontend)
-Jika Anda hanya ingin mendeploy frontend ke Netlify:
+## 2. Deploy ke Netlify
 1. Hubungkan repositori GitHub Anda ke Netlify.
-2. Gunakan pengaturan berikut:
+2. Tambahkan **Environment Variables** di Netlify:
+   - `VITE_SUPABASE_URL`: (URL Proyek Supabase Anda)
+   - `VITE_SUPABASE_ANON_KEY`: (Anon Key Supabase Anda)
+   - `GEMINI_API_KEY`: (Kunci API Gemini Anda)
+3. Gunakan pengaturan build:
    - **Build Command:** `npm run build`
    - **Publish Directory:** `dist`
-3. Tambahkan Environment Variable di Netlify:
-   - `GEMINI_API_KEY`: (Kunci API Gemini Anda)
-
-*Catatan: Fitur simpan buku ke database tidak akan berfungsi dengan benar di Netlify tanpa refactoring ke database cloud (seperti Supabase atau MongoDB).*
 
 ---
 
-## Opsi 2: Deploy ke Render/Railway (Direkomendasikan)
-Platform ini mendukung server Express dan database SQLite secara penuh.
-1. Hubungkan GitHub ke Render/Railway.
-2. Pilih tipe layanan: **Web Service**.
-3. Pengaturan:
-   - **Build Command:** `npm install && npm run build`
-   - **Start Command:** `node server.ts`
-4. Tambahkan Environment Variable:
-   - `NODE_ENV`: `production`
-   - `GEMINI_API_KEY`: (Kunci API Gemini Anda)
-5. (Khusus Render) Tambahkan **Disk** untuk menyimpan file `storybook.db` agar data tidak hilang.
-
----
-
-## Langkah-langkah GitHub
-1. Buat repositori baru di GitHub.
-2. Inisialisasi git di folder lokal:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git branch -M main
-   git remote add origin https://github.com/USERNAME/REPO_NAME.git
-   git push -u origin main
-   ```
+## 3. Kenapa Gambar Tidak Muncul di Netlify?
+Jika Anda mendeploy ke Netlify dan gambar tidak muncul, pastikan:
+1. **Gemini API Key** sudah diset di environment variables Netlify.
+2. Gambar yang dihasilkan oleh Gemini adalah dalam format **Base64** (data URI), yang seharusnya aman ditampilkan di browser mana pun.
+3. Jika menggunakan **Freepik AI**, pastikan API Key Freepik juga sudah diset di pengaturan aplikasi.
