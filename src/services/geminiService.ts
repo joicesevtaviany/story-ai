@@ -3,7 +3,16 @@ import { useBookStore } from "../store/useBookStore";
 
 const getGenAI = () => {
   const { geminiApiKey } = useBookStore.getState();
-  const apiKey = geminiApiKey || process.env.GEMINI_API_KEY!;
+  
+  // Priority: 1. User's custom key in Settings, 2. VITE_ env var (Netlify), 3. process.env (AI Studio)
+  const apiKey = geminiApiKey || 
+                 import.meta.env.VITE_GEMINI_API_KEY || 
+                 (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
+
+  if (!apiKey) {
+    throw new Error("Gemini API Key tidak ditemukan. Silakan masukkan di menu Pengaturan atau atur VITE_GEMINI_API_KEY di environment variables.");
+  }
+  
   return new GoogleGenAI({ apiKey });
 };
 

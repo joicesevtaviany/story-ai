@@ -49,7 +49,8 @@ CREATE POLICY "Allow public insert" ON pages FOR INSERT WITH CHECK (true);
 2. Tambahkan **Environment Variables** di Netlify:
    - `VITE_SUPABASE_URL`: (URL Proyek Supabase Anda)
    - `VITE_SUPABASE_ANON_KEY`: (Anon Key Supabase Anda)
-   - `GEMINI_API_KEY`: (Kunci API Gemini Anda)
+   - `VITE_GEMINI_API_KEY`: (Kunci API Gemini Anda - Gunakan awalan VITE_)
+   - `GEMINI_API_KEY`: (Opsional, untuk kompatibilitas tambahan)
 3. Gunakan pengaturan build:
    - **Build Command:** `npm run build`
    - **Publish Directory:** `dist`
