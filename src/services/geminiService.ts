@@ -155,7 +155,9 @@ export const generateImage = async (prompt: string) => {
     const genAI = getGenAI();
     const response = await genAI.models.generateContent({
       model: "gemini-2.5-flash-image",
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      contents: {
+        parts: [{ text: prompt }]
+      },
       config: {
         imageConfig: {
           aspectRatio: "1:1"

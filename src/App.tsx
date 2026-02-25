@@ -21,7 +21,7 @@ import {
   Check
 } from 'lucide-react';
 import { useBookStore, Book, Page } from './store/useBookStore';
-import { validateGeminiKey } from './services/geminiService';
+import { validateGeminiKey, generateImage } from './services/geminiService';
 import { isSupabaseConfigured } from './services/supabase';
 import { Wizard } from './components/Wizard';
 import { Dashboard } from './components/Dashboard';
@@ -204,8 +204,23 @@ function SettingsView() {
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{ valid: boolean; message: string } | null>(null);
   const [saveStatus, setSaveStatus] = useState<{ [key: string]: boolean }>({});
+  const [isTestingImage, setIsTestingImage] = useState(false);
 
-  const handleSaveBrand = () => {
+  const handleTestImage = async () => {
+    setIsTestingImage(true);
+    try {
+      const url = await generateImage("A cute small robot playing with a ball, cartoon style, bright colors");
+      if (url) {
+        alert("Berhasil! Gambar contoh berhasil dibuat.");
+      }
+    } catch (error: any) {
+      alert("Gagal membuat gambar: " + error.message);
+    } finally {
+      setIsTestingImage(false);
+    }
+  };
+
+  const handleSaveBrand = async () => {
     setBrandSettings(localBrandName, brandLogo, localLogoUrl);
     triggerFeedback('brand');
   };
@@ -419,17 +434,28 @@ function SettingsView() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-500">Status Sistem:</span>
-            {import.meta.env.VITE_GEMINI_API_KEY ? (
-              <span className="text-green-600 font-bold flex items-center gap-1">
-                <Check size={12} /> VITE_GEMINI_API_KEY Terdeteksi
-              </span>
-            ) : (
-              <span className="text-amber-600 font-bold flex items-center gap-1">
-                ⚠️ VITE_GEMINI_API_KEY Tidak Ditemukan
-              </span>
-            )}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-500">Status Sistem:</span>
+              {import.meta.env.VITE_GEMINI_API_KEY ? (
+                <span className="text-green-600 font-bold flex items-center gap-1">
+                  <Check size={12} /> VITE_GEMINI_API_KEY Terdeteksi
+                </span>
+              ) : (
+                <span className="text-amber-600 font-bold flex items-center gap-1">
+                  ⚠️ VITE_GEMINI_API_KEY Tidak Ditemukan
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={handleTestImage}
+              disabled={isTestingImage}
+              className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm font-bold text-slate-500 hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center gap-2"
+            >
+              {isTestingImage ? <Loader2 size={18} className="animate-spin" /> : <ImageIcon size={18} />}
+              Tes Generate Gambar (Debug)
+            </button>
           </div>
           
           {validationResult && (
