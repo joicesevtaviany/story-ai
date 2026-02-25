@@ -14,3 +14,31 @@ export const supabase = createClient(
 );
 
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+
+export const uploadImage = async (base64Data: string, fileName: string) => {
+  if (!isSupabaseConfigured) return base64Data;
+  
+  try {
+    // Convert base64 to blob
+    const res = await fetch(base64Data);
+    const blob = await res.blob();
+
+    const { data, error } = await supabase.storage
+      .from('illustrations')
+      .upload(`${Date.now()}-${fileName}.png`, blob, {
+        contentType: 'image/png',
+        upsert: true
+      });
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('illustrations')
+      .getPublicUrl(data.path);
+
+    return publicUrl;
+  } catch (error) {
+    console.error("Upload error:", error);
+    return base64Data; // Fallback to base64 if upload fails
+  }
+};

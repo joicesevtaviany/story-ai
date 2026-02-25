@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabase } from '../services/supabase';
+import { supabase, uploadImage } from '../services/supabase';
 
 export interface Page {
   pageNumber: number;
@@ -101,15 +101,27 @@ export const useBookStore = create<BookStore>()(
         });
       },
       addBook: async (book) => {
+        // Upload images to Supabase Storage first
+        const pagesWithUrls = await Promise.all(book.pages.map(async (page) => {
+          if (page.imageUrl && page.imageUrl.startsWith('data:')) {
+            const publicUrl = await uploadImage(page.imageUrl, `page-${page.pageNumber}`);
+            return { ...page, imageUrl: publicUrl };
+          }
+          return page;
+        }));
+
+        const coverImageUrl = pagesWithUrls[0]?.imageUrl || book.coverImageUrl;
+        const finalBook = { ...book, pages: pagesWithUrls, coverImageUrl };
+
         const { data: bookData, error: bookError } = await supabase
           .from('books')
           .insert([{
-            id: book.id,
-            title: book.title,
-            theme: book.theme,
-            target_age: book.targetAge,
-            moral_value: book.moralValue,
-            cover_image_url: book.coverImageUrl
+            id: finalBook.id,
+            title: finalBook.title,
+            theme: finalBook.theme,
+            target_age: finalBook.targetAge,
+            moral_value: finalBook.moralValue,
+            cover_image_url: finalBook.coverImageUrl
           }]);
 
         if (bookError) {
@@ -117,9 +129,9 @@ export const useBookStore = create<BookStore>()(
           return;
         }
 
-        const pagesToInsert = book.pages.map(p => ({
-          id: `${book.id}-${p.pageNumber}`,
-          book_id: book.id,
+        const pagesToInsert = finalBook.pages.map(p => ({
+          id: `${finalBook.id}-${p.pageNumber}`,
+          book_id: finalBook.id,
           page_number: p.pageNumber,
           content: p.content,
           image_url: p.imageUrl,
