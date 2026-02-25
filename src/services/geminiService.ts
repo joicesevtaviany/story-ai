@@ -4,16 +4,15 @@ import { useBookStore } from "../store/useBookStore";
 const getGenAI = () => {
   const { geminiApiKey } = useBookStore.getState();
   
-  // Priority: 1. User's custom key in Settings, 2. VITE_ env var (Netlify), 3. process.env (AI Studio)
+  // Priority: 1. User's custom key in Settings, 2. VITE_ env var (Vercel/Netlify), 3. process.env (AI Studio)
   let apiKey = geminiApiKey || 
                import.meta.env.VITE_GEMINI_API_KEY || 
                (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
 
-  // Trim whitespace to prevent network errors
   apiKey = apiKey?.trim();
 
-  if (!apiKey) {
-    throw new Error("Gemini API Key tidak ditemukan. Silakan masukkan di menu Pengaturan atau atur VITE_GEMINI_API_KEY di environment variables.");
+  if (!apiKey || apiKey.length < 10) {
+    throw new Error("Gemini API Key tidak valid atau belum diatur. Silakan masukkan API Key di menu Pengaturan.");
   }
   
   return new GoogleGenAI({ apiKey });
@@ -154,66 +153,72 @@ export const testConnection = async () => {
 };
 
 export const generateImage = async (prompt: string) => {
-  const { imageEngine, freepikApiKey, geminiApiKey } = useBookStore.getState();
+  const { imageEngine, freepikApiKey } = useBookStore.getState();
 
-  // Priority for Freepik Key: 1. Store (Settings), 2. Environment Variable
   const effectiveFreepikKey = freepikApiKey || import.meta.env.VITE_FREEPIK_API_KEY;
 
   if (imageEngine === 'freepik' && effectiveFreepikKey) {
     return generateImageFreepik(prompt, effectiveFreepikKey);
   }
 
-  // Explicit check before calling API
-  const apiKey = geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey && typeof process === 'undefined') {
-     throw new Error("Gemini API Key tidak ditemukan. Silakan atur VITE_GEMINI_API_KEY di Netlify.");
-  }
+  let retries = 2;
+  let lastError: any = null;
 
-  try {
-    const genAI = getGenAI();
-    const response = await genAI.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: {
-        parts: [{ text: prompt }]
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1"
+  while (retries > 0) {
+    try {
+      const genAI = getGenAI();
+      const response = await genAI.models.generateContent({
+        model: "gemini-2.5-flash-image",
+        contents: {
+          parts: [{ text: prompt }]
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: "1:1"
+          }
+        }
+      });
+
+      if (!response.candidates || response.candidates.length === 0) {
+        throw new Error("Google AI tidak memberikan respon (Empty Candidates).");
+      }
+
+      let imageUrl = "";
+      let refusalReason = "";
+      const parts = response.candidates[0].content?.parts || [];
+      
+      for (const part of parts) {
+        if (part.inlineData) {
+          const mimeType = part.inlineData.mimeType || 'image/png';
+          imageUrl = `data:${mimeType};base64,${part.inlineData.data}`;
+          break;
+        } else if (part.text) {
+          refusalReason += part.text + " ";
         }
       }
-    });
 
-    let imageUrl = "";
-    let refusalReason = "";
-
-    if (!response.candidates || response.candidates.length === 0) {
-      throw new Error("Google AI tidak memberikan respon. Cek kuota API Anda.");
-    }
-
-    const parts = response.candidates[0].content?.parts || [];
-    
-    for (const part of parts) {
-      if (part.inlineData) {
-        const mimeType = part.inlineData.mimeType || 'image/png';
-        imageUrl = `data:${mimeType};base64,${part.inlineData.data}`;
-        break;
-      } else if (part.text) {
-        refusalReason += part.text + " ";
+      if (!imageUrl) {
+        throw new Error(refusalReason || "Model tidak mengembalikan data gambar. Cek apakah akun Anda diizinkan membuat gambar.");
       }
+      
+      return imageUrl;
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Attempt ${3 - retries} failed:`, error);
+      
+      // If it's a network error, retry
+      if (error.message?.includes('fetch') || error.name === 'TypeError') {
+        retries--;
+        if (retries > 0) {
+          await new Promise(r => setTimeout(r, 1500));
+          continue;
+        }
+        throw new Error("Gagal terhubung ke Google AI (Network Error). Coba matikan Ad-Blocker/VPN atau gunakan koneksi internet lain.");
+      }
+      
+      // If it's a safety error or other API error, don't retry
+      throw error;
     }
-
-    if (!imageUrl) {
-      throw new Error(refusalReason || "Gagal mendapatkan gambar. Cek apakah akun Anda diizinkan membuat gambar di wilayah ini.");
-    }
-    
-    return imageUrl;
-  } catch (error: any) {
-    console.error("generateImage Error Details:", error);
-    
-    if (error.message.includes('fetch') || error.name === 'TypeError') {
-      throw new Error("Koneksi diblokir oleh Browser/Jaringan. Coba matikan Ad-Blocker, VPN, atau gunakan Jendela Penyamaran (Incognito).");
-    }
-    
-    throw error;
   }
+  throw lastError;
 };

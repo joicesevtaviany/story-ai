@@ -207,15 +207,20 @@ function SettingsView() {
   const [isTestingImage, setIsTestingImage] = useState(false);
   const [isTestingConn, setIsTestingConn] = useState(false);
 
+  const [lastErrorLog, setLastErrorLog] = useState<string>("");
+
   const handleTestConnection = async () => {
     setIsTestingConn(true);
+    setLastErrorLog("");
     try {
       const success = await testConnection();
       if (success) {
         alert("Koneksi Berhasil! API Key Anda aktif dan bisa terhubung ke Google AI.");
       }
     } catch (error: any) {
-      alert("Koneksi Gagal: " + error.message);
+      const log = `${error.name}: ${error.message}\n${error.stack || ''}`;
+      setLastErrorLog(log);
+      alert("Koneksi Gagal. Silakan cek Log Error di bawah.");
     } finally {
       setIsTestingConn(false);
     }
@@ -223,13 +228,16 @@ function SettingsView() {
 
   const handleTestImage = async () => {
     setIsTestingImage(true);
+    setLastErrorLog("");
     try {
       const url = await generateImage("A cute small robot playing with a ball, cartoon style, bright colors");
       if (url) {
         alert("Berhasil! Gambar contoh berhasil dibuat.");
       }
     } catch (error: any) {
-      alert("Gagal membuat gambar: " + error.message);
+      const log = `${error.name}: ${error.message}\n${error.stack || ''}`;
+      setLastErrorLog(log);
+      alert("Gagal membuat gambar. Silakan cek Log Error di bawah.");
     } finally {
       setIsTestingImage(false);
     }
@@ -480,6 +488,23 @@ function SettingsView() {
               {isTestingImage ? <Loader2 size={18} className="animate-spin" /> : <ImageIcon size={18} />}
               Tes Generate Gambar (Debug)
             </button>
+
+            {lastErrorLog && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg">
+                <p className="text-[10px] font-mono text-red-600 break-all whitespace-pre-wrap">
+                  {lastErrorLog}
+                </p>
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(lastErrorLog);
+                    alert("Log disalin!");
+                  }}
+                  className="mt-2 text-[10px] text-red-700 underline font-bold"
+                >
+                  Salin Log Error
+                </button>
+              </div>
+            )}
           </div>
           
           {validationResult && (
