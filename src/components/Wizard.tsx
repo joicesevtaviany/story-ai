@@ -39,15 +39,21 @@ export function Wizard({ onComplete }: WizardProps) {
       setCurrentBook(book);
       
       // Generate images for each page
+      let hasImageError = false;
       const pagesWithImages = await Promise.all(book.pages.map(async (page) => {
         try {
           const imageUrl = await generateImage(page.imagePrompt);
           return { ...page, imageUrl };
         } catch (e) {
           console.error("Image gen failed for page", page.pageNumber, e);
+          hasImageError = true;
           return page;
         }
       }));
+
+      if (hasImageError) {
+        alert("Beberapa ilustrasi gagal dibuat. Anda bisa mencoba memperbaruinya nanti di menu Edit.");
+      }
 
       const finalBook = { ...book, pages: pagesWithImages, coverImageUrl: pagesWithImages[0].imageUrl };
       setCurrentBook(finalBook);

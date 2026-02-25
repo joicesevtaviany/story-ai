@@ -417,6 +417,19 @@ function SettingsView() {
               Kosongkan untuk menggunakan API Key bawaan sistem. Gunakan ini jika Anda memiliki API Key sendiri atau jika kuota bawaan habis.
             </p>
           </div>
+
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-slate-500">Status Sistem:</span>
+            {import.meta.env.VITE_GEMINI_API_KEY ? (
+              <span className="text-green-600 font-bold flex items-center gap-1">
+                <Check size={12} /> VITE_GEMINI_API_KEY Terdeteksi
+              </span>
+            ) : (
+              <span className="text-amber-600 font-bold flex items-center gap-1">
+                ⚠️ VITE_GEMINI_API_KEY Tidak Ditemukan
+              </span>
+            )}
+          </div>
           
           {validationResult && (
             <motion.div 

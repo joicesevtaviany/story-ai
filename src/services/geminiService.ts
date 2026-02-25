@@ -136,33 +136,53 @@ export const generateStory = async (formData: {
 };
 
 export const generateImage = async (prompt: string) => {
-  const { imageEngine, freepikApiKey } = useBookStore.getState();
+  const { imageEngine, freepikApiKey, geminiApiKey } = useBookStore.getState();
 
   if (imageEngine === 'freepik' && freepikApiKey) {
     return generateImageFreepik(prompt, freepikApiKey);
   }
 
-  const genAI = getGenAI();
-  const response = await genAI.models.generateContent({
-    model: "gemini-2.5-flash-image",
-    contents: {
-      parts: [{ text: prompt }]
-    },
-    config: {
-      imageConfig: {
-        aspectRatio: "1:1"
-      }
-    }
-  });
-
-  let imageUrl = "";
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
-    if (part.inlineData) {
-      imageUrl = `data:image/png;base64,${part.inlineData.data}`;
-      break;
-    }
+  // Explicit check before calling API
+  const apiKey = geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey && typeof process === 'undefined') {
+     throw new Error("Gemini API Key tidak ditemukan. Silakan atur VITE_GEMINI_API_KEY di Netlify.");
   }
 
-  if (!imageUrl) throw new Error("No image generated");
-  return imageUrl;
+  try {
+    const genAI = getGenAI();
+    const response = await genAI.models.generateContent({
+      model: "gemini-2.5-flash-image",
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        imageConfig: {
+          aspectRatio: "1:1"
+        }
+      }
+    });
+
+    let imageUrl = "";
+    let refusalReason = "";
+
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    
+    for (const part of parts) {
+      if (part.inlineData) {
+        const mimeType = part.inlineData.mimeType || 'image/png';
+        imageUrl = `data:${mimeType};base64,${part.inlineData.data}`;
+        break;
+      } else if (part.text) {
+        refusalReason += part.text + " ";
+      }
+    }
+
+    if (!imageUrl) {
+      console.error("Gemini Image Generation Failed. Reason:", refusalReason || "No image part returned");
+      throw new Error(refusalReason || "Model tidak mengembalikan gambar. Mungkin karena filter keamanan atau kuota habis.");
+    }
+    
+    return imageUrl;
+  } catch (error: any) {
+    console.error("generateImage Error:", error);
+    throw error;
+  }
 };
