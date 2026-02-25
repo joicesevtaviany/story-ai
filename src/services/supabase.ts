@@ -19,9 +19,18 @@ export const uploadImage = async (base64Data: string, fileName: string) => {
   if (!isSupabaseConfigured) return base64Data;
   
   try {
-    // Convert base64 to blob
-    const res = await fetch(base64Data);
-    const blob = await res.blob();
+    // Manual conversion instead of fetch(base64) which can fail on large strings
+    const base64Parts = base64Data.split(',');
+    if (base64Parts.length < 2) return base64Data;
+    
+    const base64Content = base64Parts[1];
+    const byteCharacters = atob(base64Content);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'image/png' });
 
     const { data, error } = await supabase.storage
       .from('illustrations')
