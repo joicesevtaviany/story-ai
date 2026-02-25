@@ -33,9 +33,10 @@ interface BookStore {
   setBooks: (books: Book[]) => void;
   setCurrentBook: (book: Book | null) => void;
   setIsGenerating: (is: boolean) => void;
-  setBrandSettings: (name: string, logo: string, logoUrl: string) => void;
-  setImageSettings: (engine: 'gemini' | 'freepik', apiKey: string) => void;
-  setGeminiApiKey: (key: string) => void;
+  fetchSettings: () => Promise<void>;
+  setBrandSettings: (name: string, logo: string, logoUrl: string) => Promise<void>;
+  setImageSettings: (engine: 'gemini' | 'freepik', apiKey: string) => Promise<void>;
+  setGeminiApiKey: (key: string) => Promise<void>;
   addBook: (book: Book) => Promise<void>;
   fetchBooks: () => Promise<void>;
   fetchBookById: (id: string) => Promise<Book | null>;
@@ -57,9 +58,48 @@ export const useBookStore = create<BookStore>()(
       setBooks: (books) => set({ books }),
       setCurrentBook: (currentBook) => set({ currentBook }),
       setIsGenerating: (isGenerating) => set({ isGenerating }),
-      setBrandSettings: (brandName, brandLogo, brandLogoUrl) => set({ brandName, brandLogo, brandLogoUrl }),
-      setImageSettings: (imageEngine, freepikApiKey) => set({ imageEngine, freepikApiKey }),
-      setGeminiApiKey: (geminiApiKey) => set({ geminiApiKey }),
+      fetchSettings: async () => {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('*')
+          .eq('id', 'global')
+          .single();
+        
+        if (data && !error) {
+          set({
+            brandName: data.brand_name || 'StoryAI',
+            brandLogo: data.brand_logo || 'BookOpen',
+            brandLogoUrl: data.brand_logo_url || '',
+            freepikApiKey: data.freepik_api_key || '',
+            geminiApiKey: data.gemini_api_key || '',
+            imageEngine: data.image_engine || 'gemini'
+          });
+        }
+      },
+      setBrandSettings: async (brandName, brandLogo, brandLogoUrl) => {
+        set({ brandName, brandLogo, brandLogoUrl });
+        await supabase.from('settings').upsert({
+          id: 'global',
+          brand_name: brandName,
+          brand_logo: brandLogo,
+          brand_logo_url: brandLogoUrl
+        });
+      },
+      setImageSettings: async (imageEngine, freepikApiKey) => {
+        set({ imageEngine, freepikApiKey });
+        await supabase.from('settings').upsert({
+          id: 'global',
+          image_engine: imageEngine,
+          freepik_api_key: freepikApiKey
+        });
+      },
+      setGeminiApiKey: async (geminiApiKey) => {
+        set({ geminiApiKey });
+        await supabase.from('settings').upsert({
+          id: 'global',
+          gemini_api_key: geminiApiKey
+        });
+      },
       addBook: async (book) => {
         const { data: bookData, error: bookError } = await supabase
           .from('books')

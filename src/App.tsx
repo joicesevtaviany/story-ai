@@ -40,11 +40,12 @@ export default function App() {
     currentBook, setCurrentBook, setBooks, 
     brandName, brandLogo, brandLogoUrl, setBrandSettings,
     imageEngine, freepikApiKey, setImageSettings,
-    fetchBooks, fetchBookById
+    fetchBooks, fetchBookById, fetchSettings
   } = useBookStore();
 
   useEffect(() => {
     fetchBooks();
+    fetchSettings();
   }, []);
 
   const handleCreateNew = () => {
