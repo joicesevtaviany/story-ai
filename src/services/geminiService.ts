@@ -138,8 +138,11 @@ export const generateStory = async (formData: {
 export const generateImage = async (prompt: string) => {
   const { imageEngine, freepikApiKey, geminiApiKey } = useBookStore.getState();
 
-  if (imageEngine === 'freepik' && freepikApiKey) {
-    return generateImageFreepik(prompt, freepikApiKey);
+  // Priority for Freepik Key: 1. Store (Settings), 2. Environment Variable
+  const effectiveFreepikKey = freepikApiKey || import.meta.env.VITE_FREEPIK_API_KEY;
+
+  if (imageEngine === 'freepik' && effectiveFreepikKey) {
+    return generateImageFreepik(prompt, effectiveFreepikKey);
   }
 
   // Explicit check before calling API

@@ -50,6 +50,7 @@ CREATE POLICY "Allow public insert" ON pages FOR INSERT WITH CHECK (true);
    - `VITE_SUPABASE_URL`: (URL Proyek Supabase Anda)
    - `VITE_SUPABASE_ANON_KEY`: (Anon Key Supabase Anda)
    - `VITE_GEMINI_API_KEY`: (Kunci API Gemini Anda - Gunakan awalan VITE_)
+   - `VITE_FREEPIK_API_KEY`: (Opsional - Kunci API Freepik jika ingin menggunakan engine Freepik)
    - `GEMINI_API_KEY`: (Opsional, untuk kompatibilitas tambahan)
 3. Gunakan pengaturan build:
    - **Build Command:** `npm run build`
