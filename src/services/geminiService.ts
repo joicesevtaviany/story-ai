@@ -1,44 +1,29 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { useBookStore } from "../store/useBookStore";
 
-const callGeminiProxy = async (payload: any) => {
-  const { geminiApiKey } = useBookStore.getState();
-  
-  const response = await fetch('/api/proxy/gemini', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...payload,
-      apiKey: geminiApiKey // Optional override
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    const errorMessage = error.error || `Server Error (${response.status})`;
-    
-    if (errorMessage.includes("leaked")) {
-      throw new Error("API Key Gemini Anda telah bocor dan dinonaktifkan oleh Google. Silakan buat API Key baru di aistudio.google.com dan perbarui di menu Pengaturan.");
-    }
-    
-    throw new Error(errorMessage);
+const getAiInstance = (customKey?: string) => {
+  const apiKey = customKey || useBookStore.getState().geminiApiKey || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Gemini API Key tidak ditemukan. Silakan atur di menu Pengaturan.");
   }
-
-  return response.json();
+  return new GoogleGenAI({ apiKey });
 };
 
 export const validateGeminiKey = async (key: string) => {
-  // We still test locally for validation if the user just typed it
   try {
     const ai = new GoogleGenAI({ apiKey: key });
     await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: "Hi" }] }],
       config: { maxOutputTokens: 1 }
     });
     return { valid: true, message: "API Key valid!" };
   } catch (error: any) {
-    return { valid: false, message: error.message };
+    let msg = error.message;
+    if (msg.includes("leaked")) {
+      msg = "API Key ini telah bocor dan dinonaktifkan oleh Google. Silakan gunakan kunci baru.";
+    }
+    return { valid: false, message: msg };
   }
 };
 
@@ -108,60 +93,72 @@ export const generateStory = async (formData: {
   Return the response in JSON format.
   IMPORTANT: The story text MUST be in ${formData.language || "Indonesian"}.`;
 
-  const response = await callGeminiProxy({
-    model: "gemini-2.0-flash",
-    contents: [{ parts: [{ text: prompt }] }],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          pages: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                pageNumber: { type: Type.INTEGER },
-                content: { type: Type.STRING },
-                imagePrompt: { type: Type.STRING }
-              },
-              required: ["pageNumber", "content", "imagePrompt"]
+  const ai = getAiInstance();
+  try {
+    const response: GenerateContentResponse = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            pages: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  pageNumber: { type: Type.INTEGER },
+                  content: { type: Type.STRING },
+                  imagePrompt: { type: Type.STRING }
+                },
+                required: ["pageNumber", "content", "imagePrompt"]
+              }
             }
-          }
-        },
-        required: ["title", "pages"]
+          },
+          required: ["title", "pages"]
+        }
       }
-    }
-  });
+    });
 
-  // Extract text from response
-  const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-  return JSON.parse(text);
+    const text = response.text || "{}";
+    return JSON.parse(text);
+  } catch (error: any) {
+    if (error.message.includes("leaked")) {
+      throw new Error("API Key Gemini Anda telah bocor dan dinonaktifkan oleh Google. Silakan buat API Key baru di aistudio.google.com dan perbarui di menu Pengaturan.");
+    }
+    throw error;
+  }
 };
 
 export const testConnection = async () => {
+  const ai = getAiInstance();
   try {
-    await callGeminiProxy({
-      model: "gemini-2.0-flash",
-      contents: [{ parts: [{ text: "Hi" }] }]
+    await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ parts: [{ text: "Hi" }] }],
+      config: { maxOutputTokens: 1 }
     });
     return true;
   } catch (error: any) {
+    if (error.message.includes("leaked")) {
+      throw new Error("API Key Gemini Anda telah bocor dan dinonaktifkan oleh Google. Silakan buat API Key baru di aistudio.google.com dan perbarui di menu Pengaturan.");
+    }
     throw error;
   }
 };
 
 export const generateImage = async (prompt: string) => {
-  const { imageEngine, freepikApiKey } = useBookStore.getState();
+  const { imageEngine } = useBookStore.getState();
 
   if (imageEngine === 'freepik') {
     return generateImageFreepik(prompt);
   }
 
+  const ai = getAiInstance();
   try {
-    const response = await callGeminiProxy({
-      type: 'image',
+    const response: GenerateContentResponse = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
       contents: {
         parts: [{ text: prompt }]
@@ -173,13 +170,9 @@ export const generateImage = async (prompt: string) => {
       }
     });
 
-    if (!response.candidates || response.candidates.length === 0) {
-      throw new Error("Google AI tidak memberikan respon (Empty Candidates).");
-    }
-
     let imageUrl = "";
     let refusalReason = "";
-    const parts = response.candidates[0].content?.parts || [];
+    const parts = response.candidates?.[0]?.content?.parts || [];
     
     for (const part of parts) {
       if (part.inlineData) {
@@ -197,6 +190,9 @@ export const generateImage = async (prompt: string) => {
     
     return imageUrl;
   } catch (error: any) {
+    if (error.message.includes("leaked")) {
+      throw new Error("API Key Gemini Anda telah bocor dan dinonaktifkan oleh Google. Silakan buat API Key baru di aistudio.google.com dan perbarui di menu Pengaturan.");
+    }
     console.error("generateImage Error:", error);
     throw error;
   }

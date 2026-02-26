@@ -42,51 +42,7 @@ db.exec(`
 `);
 
 // API Routes
-app.post("/api/proxy/gemini", async (req, res) => {
-  const { model, contents, config, type, apiKey: userApiKey } = req.body;
-  const apiKey = userApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-
-  if (!apiKey) {
-    return res.status(500).json({ error: "Gemini API Key not configured on server" });
-  }
-
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    
-    if (type === 'image') {
-      const response = await ai.models.generateContent({
-        model: model,
-        contents: contents,
-        config: config
-      });
-      
-      const candidates = response.candidates || [];
-      res.json({ candidates });
-    } else {
-      const response = await ai.models.generateContent({
-        model: model,
-        contents: contents,
-        config: config
-      });
-      res.json(response);
-    }
-  } catch (error: any) {
-    console.error("Gemini Proxy Error:", error);
-    
-    let errorMessage = error.message || "Failed to communicate with Gemini API";
-    
-    // Check for leaked API key error
-    if (errorMessage.includes("leaked") || (error.details && JSON.stringify(error.details).includes("leaked"))) {
-      errorMessage = "API Key Gemini terdeteksi bocor dan telah dinonaktifkan oleh Google. Silakan gunakan API Key baru di menu Pengaturan.";
-    }
-
-    res.status(error.status || 500).json({ 
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
-
+// Freepik Proxy
 app.post("/api/proxy/freepik", async (req, res) => {
   const { prompt, apiKey: userApiKey } = req.body;
   const apiKey = userApiKey || process.env.FREEPIK_API_KEY || process.env.VITE_FREEPIK_API_KEY;
