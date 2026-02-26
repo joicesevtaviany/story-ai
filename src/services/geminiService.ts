@@ -2,10 +2,15 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { useBookStore } from "../store/useBookStore";
 
 const callGeminiProxy = async (payload: any) => {
+  const { geminiApiKey } = useBookStore.getState();
+  
   const response = await fetch('/api/proxy/gemini', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      ...payload,
+      apiKey: geminiApiKey // Optional override
+    })
   });
 
   if (!response.ok) {
@@ -31,30 +36,24 @@ export const validateGeminiKey = async (key: string) => {
   }
 };
 
-export const generateImageFreepik = async (prompt: string, apiKey: string) => {
+export const generateImageFreepik = async (prompt: string) => {
+  const { freepikApiKey } = useBookStore.getState();
+  
   try {
-    const response = await fetch('https://api.freepik.com/v1/ai/text-to-image', {
+    const response = await fetch('/api/proxy/freepik', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'x-freepik-api-key': apiKey
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        prompt: prompt,
-        num_images: 1,
-        image: {
-          size: 'square_1_1'
-        },
-        styling: {
-          style: 'cartoon'
-        }
+      body: JSON.stringify({ 
+        prompt,
+        apiKey: freepikApiKey // Optional override
       })
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Freepik API Error');
+      throw new Error(error.message || error.error || 'Freepik API Error');
     }
 
     const data = await response.json();
@@ -146,10 +145,8 @@ export const testConnection = async () => {
 export const generateImage = async (prompt: string) => {
   const { imageEngine, freepikApiKey } = useBookStore.getState();
 
-  const effectiveFreepikKey = freepikApiKey || import.meta.env.VITE_FREEPIK_API_KEY;
-
-  if (imageEngine === 'freepik' && effectiveFreepikKey) {
-    return generateImageFreepik(prompt, effectiveFreepikKey);
+  if (imageEngine === 'freepik') {
+    return generateImageFreepik(prompt);
   }
 
   try {
