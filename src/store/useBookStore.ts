@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabase, uploadImage } from '../services/supabase';
+import { supabase, uploadImage, isSupabaseConfigured } from '../services/supabase';
 
 export interface Page {
   pageNumber: number;
@@ -116,43 +116,48 @@ export const useBookStore = create<BookStore>()(
         const coverImageUrl = pagesWithUrls[0]?.imageUrl || book.coverImageUrl;
         const finalBook = { ...book, pages: pagesWithUrls, coverImageUrl };
 
-        const { data: bookData, error: bookError } = await supabase
-          .from('books')
-          .insert([{
-            id: finalBook.id,
-            title: finalBook.title,
-            theme: finalBook.theme,
-            target_age: finalBook.targetAge,
-            moral_value: finalBook.moralValue,
-            cover_image_url: finalBook.coverImageUrl
-          }]);
+        if (isSupabaseConfigured) {
+          try {
+            const { error: bookError } = await supabase
+              .from('books')
+              .insert([{
+                id: finalBook.id,
+                title: finalBook.title,
+                theme: finalBook.theme,
+                target_age: finalBook.targetAge,
+                moral_value: finalBook.moralValue,
+                cover_image_url: finalBook.coverImageUrl
+              }]);
 
-        if (bookError) {
-          console.error('Error saving book:', bookError);
-          return;
+            if (bookError) {
+              console.error('Error saving book:', bookError);
+            } else {
+              const pagesToInsert = finalBook.pages.map(p => ({
+                id: `${finalBook.id}-${p.pageNumber}`,
+                book_id: finalBook.id,
+                page_number: p.pageNumber,
+                content: p.content,
+                image_url: p.imageUrl,
+                image_prompt: p.imagePrompt
+              }));
+
+              const { error: pagesError } = await supabase
+                .from('pages')
+                .insert(pagesToInsert);
+
+              if (pagesError) console.error('Error saving pages:', pagesError);
+            }
+          } catch (err) {
+            console.error('Supabase save failed:', err);
+          }
         }
 
-        const pagesToInsert = finalBook.pages.map(p => ({
-          id: `${finalBook.id}-${p.pageNumber}`,
-          book_id: finalBook.id,
-          page_number: p.pageNumber,
-          content: p.content,
-          image_url: p.imageUrl,
-          image_prompt: p.imagePrompt
-        }));
-
-        const { error: pagesError } = await supabase
-          .from('pages')
-          .insert(pagesToInsert);
-
-        if (pagesError) {
-          console.error('Error saving pages:', pagesError);
-          return;
-        }
-
-        set((state) => ({ books: [book, ...state.books] }));
+        // Always update local state for immediate feedback
+        set((state) => ({ books: [finalBook, ...state.books] }));
       },
       fetchBooks: async () => {
+        if (!isSupabaseConfigured) return;
+
         const { data, error } = await supabase
           .from('books')
           .select('*')
@@ -218,51 +223,61 @@ export const useBookStore = create<BookStore>()(
         return book;
       },
       deleteBook: async (id) => {
-        const { error: pagesError } = await supabase
-          .from('pages')
-          .delete()
-          .eq('book_id', id);
-        
-        if (pagesError) {
-          console.error('Error deleting pages:', pagesError);
-        }
-
-        const { error: bookError } = await supabase
-          .from('books')
-          .delete()
-          .eq('id', id);
-
-        if (bookError) {
-          console.error('Error deleting book:', bookError);
-          return;
-        }
-
+        // Optimistic update - clear from UI immediately
         set((state) => ({
           books: state.books.filter(b => b.id !== id),
           currentBook: state.currentBook?.id === id ? null : state.currentBook
         }));
+
+        if (!isSupabaseConfigured) return;
+
+        try {
+          const { error: pagesError } = await supabase
+            .from('pages')
+            .delete()
+            .eq('book_id', id);
+          
+          if (pagesError) console.error('Error deleting pages:', pagesError);
+
+          const { error: bookError } = await supabase
+            .from('books')
+            .delete()
+            .eq('id', id);
+
+          if (bookError) console.error('Error deleting book:', bookError);
+        } catch (err) {
+          console.error('Delete failed:', err);
+        }
       },
       deleteAllBooks: async () => {
-        const { error: pagesError } = await supabase
-          .from('pages')
-          .delete()
-          .neq('id', 'placeholder'); // Delete all
-        
-        if (pagesError) {
-          console.error('Error deleting all pages:', pagesError);
-        }
-
-        const { error: bookError } = await supabase
-          .from('books')
-          .delete()
-          .neq('id', 'placeholder'); // Delete all
-
-        if (bookError) {
-          console.error('Error deleting all books:', bookError);
-          return;
-        }
-
+        // Clear local state immediately for better UX
         set({ books: [], currentBook: null });
+
+        if (!isSupabaseConfigured) return;
+
+        try {
+          // Delete all pages first (foreign key constraint)
+          const { error: pagesError } = await supabase
+            .from('pages')
+            .delete()
+            .not('id', 'is', null); // More robust "delete all" filter
+          
+          if (pagesError) console.error('Error deleting all pages:', pagesError);
+
+          // Delete all books
+          const { error: bookError } = await supabase
+            .from('books')
+            .delete()
+            .not('id', 'is', null);
+
+          if (bookError) {
+            console.error('Error deleting all books:', bookError);
+            // If it failed on server, we might want to re-fetch to show reality
+            // but for now we trust the user's intent to clear.
+          }
+        } catch (err) {
+          console.error('Delete all failed:', err);
+        }
       },
       updateBook: async (id, updates) => {
         const { error } = await supabase

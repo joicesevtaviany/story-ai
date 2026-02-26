@@ -552,7 +552,7 @@ function SettingsView() {
           <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
             <h3 className="font-bold text-slate-800 mb-2">Reset Pengaturan Lokal</h3>
             <p className="text-sm text-slate-600 mb-4">
-              Jika Anda mengalami masalah saat menyimpan pengaturan atau aplikasi terasa lambat, Anda dapat menghapus cache lokal. Ini akan mereset pengaturan brand dan API key Anda.
+              Jika Anda mengalami masalah saat menyimpan pengaturan atau aplikasi terasa lambat, Anda dapat menghapus cache lokal. Ini akan mereset pengaturan brand dan API key Anda, **tetapi tidak akan menghapus buku cerita di database**.
             </p>
             <button 
               onClick={() => {
