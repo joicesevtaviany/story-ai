@@ -529,21 +529,43 @@ function SettingsView() {
           <Trash2 size={20} />
           Pembersihan Data
         </h2>
-        <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
-          <p className="text-sm text-red-700 mb-4">
-            Jika Anda mengalami masalah saat menyimpan pengaturan atau aplikasi terasa lambat, Anda dapat menghapus cache lokal. Ini akan mereset pengaturan brand dan API key Anda.
-          </p>
-          <button 
-            onClick={() => {
-              if (confirm('Apakah Anda yakin ingin menghapus semua pengaturan lokal?')) {
-                localStorage.removeItem('storybook-ai-storage');
-                window.location.reload();
-              }
-            }}
-            className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-100"
-          >
-            Hapus Cache & Reset
-          </button>
+        <div className="space-y-4">
+          <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
+            <h3 className="font-bold text-red-800 mb-2">Hapus Semua Koleksi Buku</h3>
+            <p className="text-sm text-red-700 mb-4">
+              Tindakan ini akan menghapus **seluruh** buku cerita yang telah Anda buat dari database secara permanen. Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <button 
+              onClick={async () => {
+                if (confirm('APAKAH ANDA YAKIN? Semua buku cerita Anda akan dihapus selamanya dari database.')) {
+                  const { deleteAllBooks } = useBookStore.getState();
+                  await deleteAllBooks();
+                  alert('Semua koleksi buku telah dihapus.');
+                }
+              }}
+              className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-100"
+            >
+              Hapus Semua Buku
+            </button>
+          </div>
+
+          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-2">Reset Pengaturan Lokal</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Jika Anda mengalami masalah saat menyimpan pengaturan atau aplikasi terasa lambat, Anda dapat menghapus cache lokal. Ini akan mereset pengaturan brand dan API key Anda.
+            </p>
+            <button 
+              onClick={() => {
+                if (confirm('Apakah Anda yakin ingin menghapus semua pengaturan lokal?')) {
+                  localStorage.removeItem('storybook-ai-storage');
+                  window.location.reload();
+                }
+              }}
+              className="px-6 py-2 bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 transition-all shadow-lg shadow-slate-100"
+            >
+              Hapus Cache & Reset
+            </button>
+          </div>
         </div>
       </section>
     </div>

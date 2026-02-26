@@ -41,6 +41,7 @@ interface BookStore {
   fetchBooks: () => Promise<void>;
   fetchBookById: (id: string) => Promise<Book | null>;
   deleteBook: (id: string) => Promise<void>;
+  deleteAllBooks: () => Promise<void>;
   updateBook: (id: string, updates: Partial<Book>) => Promise<void>;
   updatePage: (pageNumber: number, updates: Partial<Page>) => void;
 }
@@ -240,6 +241,28 @@ export const useBookStore = create<BookStore>()(
           books: state.books.filter(b => b.id !== id),
           currentBook: state.currentBook?.id === id ? null : state.currentBook
         }));
+      },
+      deleteAllBooks: async () => {
+        const { error: pagesError } = await supabase
+          .from('pages')
+          .delete()
+          .neq('id', 'placeholder'); // Delete all
+        
+        if (pagesError) {
+          console.error('Error deleting all pages:', pagesError);
+        }
+
+        const { error: bookError } = await supabase
+          .from('books')
+          .delete()
+          .neq('id', 'placeholder'); // Delete all
+
+        if (bookError) {
+          console.error('Error deleting all books:', bookError);
+          return;
+        }
+
+        set({ books: [], currentBook: null });
       },
       updateBook: async (id, updates) => {
         const { error } = await supabase

@@ -74,7 +74,21 @@ export function Dashboard({ onOpenBook, onCreateNew }: DashboardProps) {
           <h2 className="text-3xl font-bold tracking-tight">Perpustakaan Saya</h2>
           <p className="text-slate-500">Koleksi cerita ajaib Anda.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {books.length > 0 && (
+            <button 
+              onClick={async () => {
+                if (confirm('Hapus SEMUA buku di perpustakaan? Tindakan ini permanen.')) {
+                  const { deleteAllBooks } = useBookStore.getState();
+                  await deleteAllBooks();
+                }
+              }}
+              className="flex items-center justify-center gap-2 px-4 py-3 text-red-600 hover:bg-red-50 rounded-2xl font-bold transition-all"
+            >
+              <Trash2 size={18} />
+              Hapus Semua
+            </button>
+          )}
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-4 py-2 text-sm shadow-sm">
             <Filter size={16} className="text-slate-400" />
             <select 
