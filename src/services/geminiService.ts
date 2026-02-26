@@ -53,7 +53,11 @@ export const generateImageFreepik = async (prompt: string) => {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || error.error || 'Freepik API Error');
+      const msg = error.message || error.error || 'Freepik API Error';
+      if (msg.includes('not configured on server')) {
+        throw new Error("API Key Freepik belum diatur di server. Silakan masukkan API Key di menu Pengaturan atau hubungi admin.");
+      }
+      throw new Error(msg);
     }
 
     const data = await response.json();

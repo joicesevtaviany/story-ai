@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, Edit3, ArrowLeft, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Edit3, ArrowLeft, Sparkles, Trash2 } from 'lucide-react';
 import { useBookStore } from '../store/useBookStore';
 import { jsPDF } from 'jspdf';
 
@@ -9,10 +9,17 @@ interface BookPreviewProps {
 }
 
 export function BookPreview({ onEdit, onBack }: BookPreviewProps) {
-  const { currentBook, brandName } = useBookStore();
+  const { currentBook, brandName, deleteBook } = useBookStore();
   const [currentPage, setCurrentPage] = useState(0);
 
   if (!currentBook) return null;
+
+  const handleDelete = async () => {
+    if (confirm('Apakah Anda yakin ingin menghapus buku ini?')) {
+      await deleteBook(currentBook.id);
+      onBack();
+    }
+  };
 
   const pages = currentBook.pages || [];
   const totalPages = pages.length;
@@ -86,6 +93,13 @@ export function BookPreview({ onEdit, onBack }: BookPreviewProps) {
           >
             <Edit3 size={18} />
             Edit Cerita
+          </button>
+          <button 
+            onClick={handleDelete}
+            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-xl hover:bg-red-50 transition-all font-medium"
+          >
+            <Trash2 size={18} />
+            Hapus
           </button>
           <button 
             onClick={handleExportPDF}

@@ -157,8 +157,58 @@ app.post("/api/books", (req, res) => {
 });
 
 app.get("/api/books", (req, res) => {
-  const books = db.prepare("SELECT * FROM books ORDER BY createdAt DESC").all();
+  const { sortBy = 'createdAt', order = 'DESC' } = req.query;
+  const validColumns = ['title', 'createdAt', 'theme'];
+  const column = validColumns.includes(sortBy as string) ? sortBy : 'createdAt';
+  const direction = order === 'ASC' ? 'ASC' : 'DESC';
+
+  const books = db.prepare(`SELECT * FROM books ORDER BY ${column} ${direction}`).all();
   res.json(books || []);
+});
+
+app.put("/api/books/:id", (req, res) => {
+  const { title, theme, targetAge, moralValue } = req.body;
+  const { id } = req.params;
+
+  try {
+    const updateBook = db.prepare(`
+      UPDATE books 
+      SET title = ?, theme = ?, targetAge = ?, moralValue = ?
+      WHERE id = ?
+    `);
+    const result = updateBook.run(title, theme, targetAge, moralValue, id);
+    
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "Book not found" });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Update book error:", error);
+    res.status(500).json({ error: "Failed to update book" });
+  }
+});
+
+app.delete("/api/books/:id", (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Delete pages first due to foreign key (though sqlite might need PRAGMA foreign_keys = ON)
+    const deletePages = db.prepare("DELETE FROM pages WHERE bookId = ?");
+    deletePages.run(id);
+
+    const deleteBook = db.prepare("DELETE FROM books WHERE id = ?");
+    const result = deleteBook.run(id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "Book not found" });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete book error:", error);
+    res.status(500).json({ error: "Failed to delete book" });
+  }
 });
 
 app.get("/api/books/:id", (req, res) => {
@@ -167,6 +217,41 @@ app.get("/api/books/:id", (req, res) => {
 
   const pages = db.prepare("SELECT * FROM pages WHERE bookId = ? ORDER BY pageNumber ASC").all(req.params.id);
   res.json({ ...book, pages: pages || [] });
+});
+
+app.delete("/api/books/:id", (req, res) => {
+  try {
+    const deletePages = db.prepare("DELETE FROM pages WHERE bookId = ?");
+    deletePages.run(req.params.id);
+
+    const deleteBook = db.prepare("DELETE FROM books WHERE id = ?");
+    deleteBook.run(req.params.id);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete book error:", error);
+    res.status(500).json({ error: "Failed to delete book" });
+  }
+});
+
+app.patch("/api/books/:id", (req, res) => {
+  const { title, theme, targetAge, moralValue, coverImageUrl } = req.body;
+  try {
+    const updateBook = db.prepare(`
+      UPDATE books 
+      SET title = COALESCE(?, title),
+          theme = COALESCE(?, theme),
+          targetAge = COALESCE(?, targetAge),
+          moralValue = COALESCE(?, moralValue),
+          coverImageUrl = COALESCE(?, coverImageUrl)
+      WHERE id = ?
+    `);
+    updateBook.run(title, theme, targetAge, moralValue, coverImageUrl, req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Update book error:", error);
+    res.status(500).json({ error: "Failed to update book" });
+  }
 });
 
 // Vite middleware for development

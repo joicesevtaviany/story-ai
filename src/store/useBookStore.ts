@@ -40,6 +40,8 @@ interface BookStore {
   addBook: (book: Book) => Promise<void>;
   fetchBooks: () => Promise<void>;
   fetchBookById: (id: string) => Promise<Book | null>;
+  deleteBook: (id: string) => Promise<void>;
+  updateBook: (id: string, updates: Partial<Book>) => Promise<void>;
   updatePage: (pageNumber: number, updates: Partial<Page>) => void;
 }
 
@@ -213,6 +215,53 @@ export const useBookStore = create<BookStore>()(
         };
 
         return book;
+      },
+      deleteBook: async (id) => {
+        const { error: pagesError } = await supabase
+          .from('pages')
+          .delete()
+          .eq('book_id', id);
+        
+        if (pagesError) {
+          console.error('Error deleting pages:', pagesError);
+        }
+
+        const { error: bookError } = await supabase
+          .from('books')
+          .delete()
+          .eq('id', id);
+
+        if (bookError) {
+          console.error('Error deleting book:', bookError);
+          return;
+        }
+
+        set((state) => ({
+          books: state.books.filter(b => b.id !== id),
+          currentBook: state.currentBook?.id === id ? null : state.currentBook
+        }));
+      },
+      updateBook: async (id, updates) => {
+        const { error } = await supabase
+          .from('books')
+          .update({
+            title: updates.title,
+            theme: updates.theme,
+            target_age: updates.targetAge,
+            moral_value: updates.moralValue,
+            cover_image_url: updates.coverImageUrl
+          })
+          .eq('id', id);
+
+        if (error) {
+          console.error('Error updating book:', error);
+          return;
+        }
+
+        set((state) => ({
+          books: state.books.map(b => b.id === id ? { ...b, ...updates } : b),
+          currentBook: state.currentBook?.id === id ? { ...state.currentBook, ...updates } : state.currentBook
+        }));
       },
       updatePage: (pageNumber, updates) => set((state) => {
         if (!state.currentBook) return state;
