@@ -60,9 +60,9 @@ export function Wizard({ onComplete }: WizardProps) {
       
       await addBook(finalBook);
       onComplete();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Failed to generate story. Please try again.");
+      alert(error.message || "Gagal membuat cerita. Silakan coba lagi.");
     } finally {
       setIsGenerating(false);
     }

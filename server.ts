@@ -72,9 +72,17 @@ app.post("/api/proxy/gemini", async (req, res) => {
     }
   } catch (error: any) {
     console.error("Gemini Proxy Error:", error);
-    res.status(500).json({ 
-      error: error.message || "Failed to communicate with Gemini API",
-      details: error.stack
+    
+    let errorMessage = error.message || "Failed to communicate with Gemini API";
+    
+    // Check for leaked API key error
+    if (errorMessage.includes("leaked") || (error.details && JSON.stringify(error.details).includes("leaked"))) {
+      errorMessage = "API Key Gemini terdeteksi bocor dan telah dinonaktifkan oleh Google. Silakan gunakan API Key baru di menu Pengaturan.";
+    }
+
+    res.status(error.status || 500).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

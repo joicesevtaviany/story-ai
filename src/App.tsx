@@ -220,7 +220,7 @@ function SettingsView() {
     } catch (error: any) {
       const log = `${error.name}: ${error.message}\n${error.stack || ''}`;
       setLastErrorLog(log);
-      alert("Koneksi Gagal. Silakan cek Log Error di bawah.");
+      alert(error.message || "Koneksi Gagal. Silakan cek Log Error di bawah.");
     } finally {
       setIsTestingConn(false);
     }
@@ -237,7 +237,7 @@ function SettingsView() {
     } catch (error: any) {
       const log = `${error.name}: ${error.message}\n${error.stack || ''}`;
       setLastErrorLog(log);
-      alert("Gagal membuat gambar. Silakan cek Log Error di bawah.");
+      alert(error.message || "Gagal membuat gambar. Silakan cek Log Error di bawah.");
     } finally {
       setIsTestingImage(false);
     }

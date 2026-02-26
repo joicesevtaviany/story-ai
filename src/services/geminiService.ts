@@ -15,7 +15,13 @@ const callGeminiProxy = async (payload: any) => {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || `Server Error (${response.status})`);
+    const errorMessage = error.error || `Server Error (${response.status})`;
+    
+    if (errorMessage.includes("leaked")) {
+      throw new Error("API Key Gemini Anda telah bocor dan dinonaktifkan oleh Google. Silakan buat API Key baru di aistudio.google.com dan perbarui di menu Pengaturan.");
+    }
+    
+    throw new Error(errorMessage);
   }
 
   return response.json();
