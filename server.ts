@@ -87,17 +87,19 @@ app.post("/api/proxy/freepik", async (req, res) => {
 // Hugging Face Proxy
 app.post("/api/proxy/huggingface", async (req, res) => {
   const { prompt, apiKey: userApiKey } = req.body;
-  const apiKey = userApiKey || process.env.HUGGINGFACE_API_KEY || process.env.VITE_HUGGINGFACE_API_KEY;
+  let apiKey = userApiKey || process.env.HUGGINGFACE_API_KEY || process.env.VITE_HUGGINGFACE_API_KEY;
+
+  if (apiKey) apiKey = apiKey.trim();
 
   if (!apiKey) {
     return res.status(400).json({ error: "API Key Hugging Face belum diatur. Silakan masukkan di menu Pengaturan." });
   }
 
   try {
-    // Using a more reliable model for free tier
-    const modelId = "runwayml/stable-diffusion-v1-5";
+    // Using a very stable model
+    const modelId = "stabilityai/stable-diffusion-2-1";
     const response = await fetch(
-      `https://api-inference.huggingface.co/models/${modelId}`,
+      `https://router.huggingface.co/models/${modelId}`,
       {
         headers: { 
           "Authorization": `Bearer ${apiKey}`,
