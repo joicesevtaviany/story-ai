@@ -202,6 +202,16 @@ function SettingsView() {
   const [localFreepikKey, setLocalFreepikKey] = useState(freepikApiKey);
   const [localHuggingFaceKey, setLocalHuggingFaceKey] = useState(huggingFaceApiKey);
   const [localGeminiKey, setLocalGeminiKey] = useState(geminiApiKey);
+
+  // Sync local state when store state changes (e.g. after fetchSettings)
+  useEffect(() => {
+    setLocalBrandName(brandName);
+    setLocalLogoUrl(brandLogoUrl);
+    setLocalFreepikKey(freepikApiKey);
+    setLocalHuggingFaceKey(huggingFaceApiKey);
+    setLocalGeminiKey(geminiApiKey);
+  }, [brandName, brandLogoUrl, freepikApiKey, huggingFaceApiKey, geminiApiKey]);
+
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{ valid: boolean; message: string } | null>(null);
   const [saveStatus, setSaveStatus] = useState<{ [key: string]: boolean }>({});

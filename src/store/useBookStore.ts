@@ -84,42 +84,50 @@ export const useBookStore = create<BookStore>()(
       },
       setBrandSettings: async (brandName, brandLogo, brandLogoUrl) => {
         set({ brandName, brandLogo, brandLogoUrl });
-        await supabase.from('settings').upsert({
-          id: 'global',
+        const { error } = await supabase.from('settings').update({
           brand_name: brandName,
           brand_logo: brandLogo,
           brand_logo_url: brandLogoUrl
-        });
+        }).eq('id', 'global');
+        
+        if (error && error.code === 'PGRST116') { // Not found
+          await supabase.from('settings').insert({
+            id: 'global',
+            brand_name: brandName,
+            brand_logo: brandLogo,
+            brand_logo_url: brandLogoUrl
+          });
+        }
       },
       setImageSettings: async (imageEngine, apiKey) => {
+        const updates: any = { image_engine: imageEngine };
         if (imageEngine === 'freepik') {
           set({ imageEngine, freepikApiKey: apiKey });
-          await supabase.from('settings').upsert({
-            id: 'global',
-            image_engine: imageEngine,
-            freepik_api_key: apiKey
-          });
+          updates.freepik_api_key = apiKey;
         } else if (imageEngine === 'huggingface') {
           set({ imageEngine, huggingFaceApiKey: apiKey });
-          await supabase.from('settings').upsert({
-            id: 'global',
-            image_engine: imageEngine,
-            huggingface_api_key: apiKey
-          });
+          updates.huggingface_api_key = apiKey;
         } else {
           set({ imageEngine });
-          await supabase.from('settings').upsert({
-            id: 'global',
-            image_engine: imageEngine
-          });
+        }
+
+        const { error } = await supabase.from('settings').update(updates).eq('id', 'global');
+        if (error && error.code === 'PGRST116') {
+          await supabase.from('settings').insert({ id: 'global', ...updates });
         }
       },
       setGeminiApiKey: async (geminiApiKey) => {
         set({ geminiApiKey });
-        await supabase.from('settings').upsert({
-          id: 'global',
+        const { error } = await supabase.from('settings').update({
           gemini_api_key: geminiApiKey
-        });
+        }).eq('id', 'global');
+        
+        if (error && error.code === 'PGRST116') {
+          await supabase.from('settings').insert({
+            id: 'global',
+            gemini_api_key: geminiApiKey
+          });
+        }
       },
       addBook: async (book) => {
         // Upload images to Supabase Storage first
