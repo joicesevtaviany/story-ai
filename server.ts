@@ -84,6 +84,49 @@ app.post("/api/proxy/freepik", async (req, res) => {
   }
 });
 
+// Hugging Face Proxy
+app.post("/api/proxy/huggingface", async (req, res) => {
+  const { prompt, apiKey: userApiKey } = req.body;
+  const apiKey = userApiKey || process.env.HUGGINGFACE_API_KEY || process.env.VITE_HUGGINGFACE_API_KEY;
+
+  if (!apiKey) {
+    return res.status(500).json({ error: "Hugging Face API Key not configured on server" });
+  }
+
+  try {
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
+      {
+        headers: { 
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        method: "POST",
+        body: JSON.stringify({ inputs: prompt }),
+      }
+    );
+
+    if (response.status === 503) {
+      const data = await response.json();
+      return res.status(503).json(data);
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      return res.status(response.status).json(error);
+    }
+
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
+    const mimeType = response.headers.get('content-type') || 'image/png';
+    
+    res.json({ data: `data:${mimeType};base64,${base64}` });
+  } catch (error: any) {
+    console.error("Hugging Face Proxy Error:", error);
+    res.status(500).json({ error: error.message || "Failed to communicate with Hugging Face API" });
+  }
+});
+
 app.post("/api/books", (req, res) => {
   const { id, title, theme, targetAge, moralValue, coverImageUrl, pages } = req.body;
 

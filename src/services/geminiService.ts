@@ -88,22 +88,20 @@ export const generateImagePollinations = async (prompt: string) => {
 
 export const generateImageHuggingFace = async (prompt: string, retryCount = 0): Promise<string> => {
   const { huggingFaceApiKey } = useBookStore.getState();
-  if (!huggingFaceApiKey) {
-    throw new Error("Hugging Face API Key belum diatur. Silakan masukkan di menu Pengaturan.");
-  }
-
+  
   try {
-    const response = await fetch(
-      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
-      {
-        headers: { Authorization: `Bearer ${huggingFaceApiKey}` },
-        method: "POST",
-        body: JSON.stringify({ inputs: prompt }),
-      }
-    );
+    const response = await fetch('/api/proxy/huggingface', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        prompt,
+        apiKey: huggingFaceApiKey 
+      })
+    });
 
     if (response.status === 503 && retryCount < 5) {
-      // Model is loading, wait and retry
       const data = await response.json();
       const waitTime = (data.estimated_time || 10) * 1000;
       console.log(`Hugging Face model loading, waiting ${waitTime}ms...`);
@@ -113,18 +111,16 @@ export const generateImageHuggingFace = async (prompt: string, retryCount = 0): 
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || "Hugging Face API Error: " + response.statusText);
+      throw new Error(errorData.error || errorData.message || "Hugging Face API Error: " + response.statusText);
     }
 
-    const blob = await response.blob();
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
+    const result = await response.json();
+    return result.data; // This is already base64 from proxy
+  } catch (error: any) {
     console.error("Hugging Face Error:", error);
+    if (error.message.includes("Failed to fetch")) {
+      throw new Error("Gagal terhubung ke server. Pastikan koneksi internet stabil atau coba lagi nanti.");
+    }
     throw error;
   }
 };
