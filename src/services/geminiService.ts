@@ -68,10 +68,25 @@ export const generateImageFreepik = async (prompt: string) => {
 export const generateImagePollinations = async (prompt: string) => {
   const encodedPrompt = encodeURIComponent(prompt);
   const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
-  return url;
+  
+  try {
+    // Fetch the image and convert to base64 to ensure it's "locked in" and can be uploaded to Supabase
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Pollinations fetch failed");
+    const blob = await response.blob();
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("Pollinations Error (falling back to URL):", error);
+    return url; // Fallback to direct URL if fetch fails
+  }
 };
 
-export const generateImageHuggingFace = async (prompt: string) => {
+export const generateImageHuggingFace = async (prompt: string, retryCount = 0): Promise<string> => {
   const { huggingFaceApiKey } = useBookStore.getState();
   if (!huggingFaceApiKey) {
     throw new Error("Hugging Face API Key belum diatur. Silakan masukkan di menu Pengaturan.");
@@ -87,8 +102,18 @@ export const generateImageHuggingFace = async (prompt: string) => {
       }
     );
 
+    if (response.status === 503 && retryCount < 5) {
+      // Model is loading, wait and retry
+      const data = await response.json();
+      const waitTime = (data.estimated_time || 10) * 1000;
+      console.log(`Hugging Face model loading, waiting ${waitTime}ms...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      return generateImageHuggingFace(prompt, retryCount + 1);
+    }
+
     if (!response.ok) {
-      throw new Error("Hugging Face API Error: " + response.statusText);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Hugging Face API Error: " + response.statusText);
     }
 
     const blob = await response.blob();
