@@ -89,6 +89,10 @@ export const generateImagePollinations = async (prompt: string) => {
 export const generateImageHuggingFace = async (prompt: string, retryCount = 0): Promise<string> => {
   const { huggingFaceApiKey } = useBookStore.getState();
   
+  if (!huggingFaceApiKey && !process.env.VITE_HUGGINGFACE_API_KEY) {
+    throw new Error("Hugging Face API Key belum diatur. Silakan masukkan di menu Pengaturan.");
+  }
+
   try {
     const response = await fetch('/api/proxy/huggingface', {
       method: 'POST',
@@ -101,21 +105,26 @@ export const generateImageHuggingFace = async (prompt: string, retryCount = 0): 
       })
     });
 
-    if (response.status === 503 && retryCount < 5) {
-      const data = await response.json();
-      const waitTime = (data.estimated_time || 10) * 1000;
-      console.log(`Hugging Face model loading, waiting ${waitTime}ms...`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+    if (response.status === 503 && retryCount < 8) {
+      const data = await response.json().catch(() => ({}));
+      const waitTime = (data.estimated_time || 15) * 1000;
+      console.log(`Hugging Face model loading, waiting ${waitTime}ms... (Attempt ${retryCount + 1})`);
+      await new Promise(resolve => setTimeout(resolve, Math.min(waitTime, 30000))); // Max wait 30s per retry
       return generateImageHuggingFace(prompt, retryCount + 1);
     }
 
+    const result = await response.json().catch(() => ({ error: "Gagal membaca respon dari server" }));
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || errorData.message || "Hugging Face API Error: " + response.statusText);
+      const errorMsg = result.error || result.message || `Error ${response.status}: ${response.statusText}`;
+      throw new Error("Hugging Face API Error: " + errorMsg);
     }
 
-    const result = await response.json();
-    return result.data; // This is already base64 from proxy
+    if (!result.data) {
+      throw new Error("Hugging Face API Error: Server tidak mengembalikan data gambar.");
+    }
+
+    return result.data;
   } catch (error: any) {
     console.error("Hugging Face Error:", error);
     if (error.message.includes("Failed to fetch")) {

@@ -90,12 +90,14 @@ app.post("/api/proxy/huggingface", async (req, res) => {
   const apiKey = userApiKey || process.env.HUGGINGFACE_API_KEY || process.env.VITE_HUGGINGFACE_API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ error: "Hugging Face API Key not configured on server" });
+    return res.status(400).json({ error: "API Key Hugging Face belum diatur. Silakan masukkan di menu Pengaturan." });
   }
 
   try {
+    // Using a more reliable model for free tier
+    const modelId = "runwayml/stable-diffusion-v1-5";
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
+      `https://api-inference.huggingface.co/models/${modelId}`,
       {
         headers: { 
           "Authorization": `Bearer ${apiKey}`,
@@ -107,23 +109,35 @@ app.post("/api/proxy/huggingface", async (req, res) => {
     );
 
     if (response.status === 503) {
-      const data = await response.json();
+      const data = await response.json().catch(() => ({ error: "Model is loading" }));
       return res.status(503).json(data);
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }));
-      return res.status(response.status).json(error);
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { error: errorText || `HTTP Error ${response.status}: ${response.statusText}` };
+      }
+      return res.status(response.status).json(errorData);
     }
 
     const buffer = await response.arrayBuffer();
+    if (buffer.byteLength < 100) {
+      // Likely not an image
+      const text = new TextDecoder().decode(buffer);
+      return res.status(500).json({ error: "Received invalid image data: " + text });
+    }
+
     const base64 = Buffer.from(buffer).toString('base64');
     const mimeType = response.headers.get('content-type') || 'image/png';
     
     res.json({ data: `data:${mimeType};base64,${base64}` });
   } catch (error: any) {
     console.error("Hugging Face Proxy Error:", error);
-    res.status(500).json({ error: error.message || "Failed to communicate with Hugging Face API" });
+    res.status(500).json({ error: error.message || "Gagal menghubungi API Hugging Face" });
   }
 });
 
