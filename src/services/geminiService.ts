@@ -65,6 +65,45 @@ export const generateImageFreepik = async (prompt: string) => {
   }
 };
 
+export const generateImagePollinations = async (prompt: string) => {
+  const encodedPrompt = encodeURIComponent(prompt);
+  const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
+  return url;
+};
+
+export const generateImageHuggingFace = async (prompt: string) => {
+  const { huggingFaceApiKey } = useBookStore.getState();
+  if (!huggingFaceApiKey) {
+    throw new Error("Hugging Face API Key belum diatur. Silakan masukkan di menu Pengaturan.");
+  }
+
+  try {
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
+      {
+        headers: { Authorization: `Bearer ${huggingFaceApiKey}` },
+        method: "POST",
+        body: JSON.stringify({ inputs: prompt }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Hugging Face API Error: " + response.statusText);
+    }
+
+    const blob = await response.blob();
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("Hugging Face Error:", error);
+    throw error;
+  }
+};
+
 export const generateStory = async (formData: {
   theme: string;
   mainCharacter: string;
@@ -74,6 +113,7 @@ export const generateStory = async (formData: {
   illustrationStyle: string;
   characterType: string;
   language?: string;
+  referenceImage?: string; // Base64
 }) => {
   const prompt = `Create a children's storybook outline with 8 pages.
   Genre: ${formData.genre}
@@ -89,15 +129,28 @@ export const generateStory = async (formData: {
   Illustration Style: ${formData.illustrationStyle}
   The image prompt MUST describe the character's appearance (hair, clothes, expression) to maintain consistency.
   Style details: ${formData.illustrationStyle}, bright, cute.
+  ${formData.referenceImage ? "Use the provided reference image to influence the character design and overall style." : ""}
 
   Return the response in JSON format.
   IMPORTANT: The story text MUST be in ${formData.language || "Indonesian"}.`;
 
   const ai = getAiInstance();
   try {
+    const parts: any[] = [{ text: prompt }];
+    if (formData.referenceImage) {
+      const base64Data = formData.referenceImage.split(',')[1];
+      const mimeType = formData.referenceImage.split(';')[0].split(':')[1];
+      parts.push({
+        inlineData: {
+          data: base64Data,
+          mimeType: mimeType
+        }
+      });
+    }
+
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: [{ parts }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -154,6 +207,14 @@ export const generateImage = async (prompt: string) => {
 
   if (imageEngine === 'freepik') {
     return generateImageFreepik(prompt);
+  }
+  
+  if (imageEngine === 'pollinations') {
+    return generateImagePollinations(prompt);
+  }
+
+  if (imageEngine === 'huggingface') {
+    return generateImageHuggingFace(prompt);
   }
 
   const ai = getAiInstance();

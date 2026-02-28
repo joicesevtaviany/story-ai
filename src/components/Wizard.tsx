@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, ArrowRight, Loader2, Wand2 } from 'lucide-react';
+import { Sparkles, ArrowRight, Loader2, Wand2, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useBookStore, Book, Page } from '../store/useBookStore';
 import { generateStory, generateImage } from '../services/geminiService';
 
@@ -18,9 +18,21 @@ export function Wizard({ onComplete }: WizardProps) {
     genre: 'Adventure',
     illustrationStyle: 'Cartoon',
     characterType: 'Human',
-    language: 'Indonesian'
+    language: 'Indonesian',
+    referenceImage: '' as string
   });
   const { setIsGenerating, isGenerating, setCurrentBook, addBook } = useBookStore();
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, referenceImage: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -116,6 +128,36 @@ export function Wizard({ onComplete }: WizardProps) {
                   <option value="Vektor Flat">Vektor Flat</option>
                   <option value="Anime">Anime</option>
                 </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Gambar Referensi (Opsional)</label>
+              <div className="flex items-center gap-4">
+                <div className="relative w-24 h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center overflow-hidden group">
+                  {formData.referenceImage ? (
+                    <>
+                      <img src={formData.referenceImage} className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => setFormData({ ...formData, referenceImage: '' })}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X size={12} />
+                      </button>
+                    </>
+                  ) : (
+                    <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
+                      <Upload className="text-slate-300 w-6 h-6 mb-1" />
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Upload</span>
+                      <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                    </label>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-slate-500">
+                    Unggah gambar karakter atau gaya yang Anda inginkan. AI akan mencoba mengikuti referensi ini.
+                  </p>
+                </div>
               </div>
             </div>
 

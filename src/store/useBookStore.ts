@@ -28,14 +28,15 @@ interface BookStore {
   brandLogo: string;
   brandLogoUrl: string;
   freepikApiKey: string;
+  huggingFaceApiKey: string;
   geminiApiKey: string;
-  imageEngine: 'gemini' | 'freepik';
+  imageEngine: 'gemini' | 'freepik' | 'huggingface' | 'pollinations';
   setBooks: (books: Book[]) => void;
   setCurrentBook: (book: Book | null) => void;
   setIsGenerating: (is: boolean) => void;
   fetchSettings: () => Promise<void>;
   setBrandSettings: (name: string, logo: string, logoUrl: string) => Promise<void>;
-  setImageSettings: (engine: 'gemini' | 'freepik', apiKey: string) => Promise<void>;
+  setImageSettings: (engine: 'gemini' | 'freepik' | 'huggingface' | 'pollinations', apiKey: string) => Promise<void>;
   setGeminiApiKey: (key: string) => Promise<void>;
   addBook: (book: Book) => Promise<void>;
   fetchBooks: () => Promise<void>;
@@ -56,6 +57,7 @@ export const useBookStore = create<BookStore>()(
       brandLogo: 'BookOpen',
       brandLogoUrl: '',
       freepikApiKey: '',
+      huggingFaceApiKey: '',
       geminiApiKey: '',
       imageEngine: 'gemini',
       setBooks: (books) => set({ books }),
@@ -74,6 +76,7 @@ export const useBookStore = create<BookStore>()(
             brandLogo: data.brand_logo || 'BookOpen',
             brandLogoUrl: data.brand_logo_url || '',
             freepikApiKey: data.freepik_api_key || '',
+            huggingFaceApiKey: data.huggingface_api_key || '',
             geminiApiKey: data.gemini_api_key || '',
             imageEngine: data.image_engine || 'gemini'
           });
@@ -88,13 +91,28 @@ export const useBookStore = create<BookStore>()(
           brand_logo_url: brandLogoUrl
         });
       },
-      setImageSettings: async (imageEngine, freepikApiKey) => {
-        set({ imageEngine, freepikApiKey });
-        await supabase.from('settings').upsert({
-          id: 'global',
-          image_engine: imageEngine,
-          freepik_api_key: freepikApiKey
-        });
+      setImageSettings: async (imageEngine, apiKey) => {
+        if (imageEngine === 'freepik') {
+          set({ imageEngine, freepikApiKey: apiKey });
+          await supabase.from('settings').upsert({
+            id: 'global',
+            image_engine: imageEngine,
+            freepik_api_key: apiKey
+          });
+        } else if (imageEngine === 'huggingface') {
+          set({ imageEngine, huggingFaceApiKey: apiKey });
+          await supabase.from('settings').upsert({
+            id: 'global',
+            image_engine: imageEngine,
+            huggingface_api_key: apiKey
+          });
+        } else {
+          set({ imageEngine });
+          await supabase.from('settings').upsert({
+            id: 'global',
+            image_engine: imageEngine
+          });
+        }
       },
       setGeminiApiKey: async (geminiApiKey) => {
         set({ geminiApiKey });
@@ -351,6 +369,7 @@ export const useBookStore = create<BookStore>()(
         brandLogo: state.brandLogo,
         brandLogoUrl: state.brandLogoUrl,
         freepikApiKey: state.freepikApiKey,
+        huggingFaceApiKey: state.huggingFaceApiKey,
         geminiApiKey: state.geminiApiKey,
         imageEngine: state.imageEngine,
       } as any),

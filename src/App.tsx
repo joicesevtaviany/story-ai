@@ -193,13 +193,14 @@ export default function App() {
 function SettingsView() {
   const { 
     brandName, brandLogo, brandLogoUrl, setBrandSettings,
-    imageEngine, freepikApiKey, setImageSettings,
+    imageEngine, freepikApiKey, huggingFaceApiKey, setImageSettings,
     geminiApiKey, setGeminiApiKey
   } = useBookStore();
 
   const [localBrandName, setLocalBrandName] = useState(brandName);
   const [localLogoUrl, setLocalLogoUrl] = useState(brandLogoUrl);
   const [localFreepikKey, setLocalFreepikKey] = useState(freepikApiKey);
+  const [localHuggingFaceKey, setLocalHuggingFaceKey] = useState(huggingFaceApiKey);
   const [localGeminiKey, setLocalGeminiKey] = useState(geminiApiKey);
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{ valid: boolean; message: string } | null>(null);
@@ -249,7 +250,13 @@ function SettingsView() {
   };
 
   const handleSaveAI = () => {
-    setImageSettings(imageEngine, localFreepikKey);
+    if (imageEngine === 'freepik') {
+      setImageSettings('freepik', localFreepikKey);
+    } else if (imageEngine === 'huggingface') {
+      setImageSettings('huggingface', localHuggingFaceKey);
+    } else {
+      setImageSettings(imageEngine, '');
+    }
     triggerFeedback('ai');
   };
 
@@ -378,6 +385,26 @@ function SettingsView() {
                 <p className="text-xs text-slate-500">Bawaan (Gratis)</p>
               </button>
               <button 
+                onClick={() => setImageSettings('pollinations', '')}
+                className={cn(
+                  "p-4 rounded-2xl border-2 transition-all text-left",
+                  imageEngine === 'pollinations' ? "border-yellow-400 bg-yellow-50" : "border-slate-100 hover:border-slate-200"
+                )}
+              >
+                <p className="font-bold text-slate-900">Pollinations</p>
+                <p className="text-xs text-slate-500">100% Gratis (No Key)</p>
+              </button>
+              <button 
+                onClick={() => setImageSettings('huggingface', huggingFaceApiKey)}
+                className={cn(
+                  "p-4 rounded-2xl border-2 transition-all text-left",
+                  imageEngine === 'huggingface' ? "border-yellow-400 bg-yellow-50" : "border-slate-100 hover:border-slate-200"
+                )}
+              >
+                <p className="font-bold text-slate-900">Hugging Face</p>
+                <p className="text-xs text-slate-500">Gratis (Butuh Key)</p>
+              </button>
+              <button 
                 onClick={() => setImageSettings('freepik', freepikApiKey)}
                 className={cn(
                   "p-4 rounded-2xl border-2 transition-all text-left",
@@ -385,10 +412,32 @@ function SettingsView() {
                 )}
               >
                 <p className="font-bold text-slate-900">Freepik AI</p>
-                <p className="text-xs text-slate-500">Membutuhkan API Key</p>
+                <p className="text-xs text-slate-500">Premium (Butuh Key)</p>
               </button>
             </div>
           </div>
+
+          {imageEngine === 'huggingface' && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Hugging Face API Key</label>
+                <input 
+                  type="password"
+                  placeholder="Masukkan API Key Hugging Face Anda"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-yellow-400 outline-none"
+                  value={localHuggingFaceKey}
+                  onChange={(e) => setLocalHuggingFaceKey(e.target.value)}
+                />
+                <p className="text-[10px] text-slate-400 mt-2 italic">
+                  Dapatkan API Key gratis di <a href="https://huggingface.co/settings/tokens" target="_blank" className="underline">Hugging Face Settings</a>.
+                </p>
+              </div>
+            </motion.div>
+          )}
 
           {imageEngine === 'freepik' && (
             <motion.div 
