@@ -114,13 +114,16 @@ app.post("/api/proxy/huggingface", async (req, res) => {
     }
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const contentType = response.headers.get("content-type");
       let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch (e) {
-        errorData = { error: errorText || `HTTP Error ${response.status}: ${response.statusText}` };
+      
+      if (contentType && contentType.includes("application/json")) {
+        errorData = await response.json().catch(() => ({ error: response.statusText }));
+      } else {
+        const errorText = await response.text().catch(() => response.statusText);
+        errorData = { error: errorText || `HTTP Error ${response.status}` };
       }
+      
       return res.status(response.status).json(errorData);
     }
 

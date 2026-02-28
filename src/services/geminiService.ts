@@ -106,14 +106,26 @@ export const generateImageHuggingFace = async (prompt: string, retryCount = 0): 
     });
 
     if (response.status === 503 && retryCount < 8) {
-      const data = await response.json().catch(() => ({}));
-      const waitTime = (data.estimated_time || 15) * 1000;
+      let waitTime = 15000;
+      try {
+        const data = await response.clone().json();
+        waitTime = (data.estimated_time || 15) * 1000;
+      } catch (e) {
+        // Not JSON, use default wait
+      }
       console.log(`Hugging Face model loading, waiting ${waitTime}ms... (Attempt ${retryCount + 1})`);
-      await new Promise(resolve => setTimeout(resolve, Math.min(waitTime, 30000))); // Max wait 30s per retry
+      await new Promise(resolve => setTimeout(resolve, Math.min(waitTime, 30000)));
       return generateImageHuggingFace(prompt, retryCount + 1);
     }
 
-    const result = await response.json().catch(() => ({ error: "Gagal membaca respon dari server" }));
+    let result;
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      result = await response.json().catch(() => ({ error: "Gagal mengurai respon JSON dari server" }));
+    } else {
+      const text = await response.text().catch(() => "Gagal membaca teks respon dari server");
+      result = { error: text || "Respon server kosong" };
+    }
 
     if (!response.ok) {
       const errorMsg = result.error || result.message || `Error ${response.status}: ${response.statusText}`;
@@ -121,7 +133,7 @@ export const generateImageHuggingFace = async (prompt: string, retryCount = 0): 
     }
 
     if (!result.data) {
-      throw new Error("Hugging Face API Error: Server tidak mengembalikan data gambar.");
+      throw new Error("Hugging Face API Error: Server tidak mengembalikan data gambar yang valid.");
     }
 
     return result.data;
